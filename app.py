@@ -55,7 +55,6 @@ with tabs[1]:
     
     with m1:
         st.subheader("Extruder")
-        # تم تعديل إنتاجية الإكسترودر إلى 500
         e_kg = st.number_input("Extruder Kg/h", 500.0)
         e_kw = st.number_input("Extruder kW", 300.0)
         e_pr = st.number_input("Extruder CAPEX", 5000000.0)
@@ -65,7 +64,6 @@ with tabs[1]:
         
     with m2:
         st.subheader("Flexo CI")
-        # تم تعديل سرعة الفلكسو إلى 350
         f_s = st.number_input("Flexo Speed", 350.0)
         f_w = st.number_input("Flexo Width", 1.0)
         f_e = st.slider("Flexo Eff%", 40, 100, 70)
@@ -78,7 +76,6 @@ with tabs[1]:
         
     with m3:
         st.subheader("Lamination")
-        # تم تعديل سرعة اللامنيشن إلى 450
         l_s = st.number_input("Lam Speed", 450.0)
         l_w = st.number_input("Lam Width", 1.0)
         l_e = st.slider("Lam Eff%", 40, 100, 75)
@@ -118,7 +115,9 @@ with tabs[1]:
         
     st.markdown("---")
     st.subheader("📊 Machines Capacity Check (Tons/Year)")
-    est_gsm = st.number_input("Estimated Avg GSM for Chart", 80.0)
+    
+    # تم تعديل هذا الرقم إلى 40 بناءً على طلبك
+    est_gsm = st.number_input("Estimated Avg GSM for Chart", 40.0)
     
     f_tons_chart = (f_sq * est_gsm) / 1000000.0
     l_tons_chart = (l_sq * est_gsm) / 1000000.0
@@ -137,7 +136,6 @@ with tabs[1]:
     t_capex = e_pr + f_pr + l_pr + s_pr + b_pr + 500000.0
     c_cap1.metric("Total CAPEX (Investment)", f"SAR {t_capex:,.0f}")
     
-    # تم تعديل سنوات الإهلاك إلى 10
     dep_y = c_cap2.number_input("Depreciation Yrs", 10.0)
     ann_dep = 0.0
     if dep_y > 0:
