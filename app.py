@@ -3,11 +3,15 @@ import pandas as pd
 import plotly.express as px
 import io
 
-st.set_page_config(page_title="Flexo Smart Plant", layout="wide")
-st.title("🏭 Flexo Smart Plant Simulator")
+st.set_page_config(page_title="NexFlexo Smart Plant", layout="wide")
+st.title("🏭 NexFlexo Smart Plant Simulator")
 st.markdown("---")
 
-tabs = st.tabs(["1. Raw Materials", "2. Production (OEE)", "3. Consumables", "4. HR & OPEX", "5. Recipes & Balance", "6. P&L Dashboard"])
+tabs = st.tabs([
+    "1. Raw Materials", "2. Production (OEE)", "3. Consumables", 
+    "4. HR & OPEX", "5. Recipes & Balance", "6. P&L Dashboard", 
+    "7. Commercial & Turnover"
+])
 
 # --- TAB 1 ---
 with tabs[0]:
@@ -210,22 +214,21 @@ with tabs[4]:
     render_capacity(cb2, "Lamination", lam_max_tons, target_sales_tons)
     render_capacity(cb3, "Slitter", slit_max_tons, target_sales_tons)
 
-# --- TAB 6 ---
+# --- TAB 6 & 7 (Finance & Quotation) ---
+annual_raw_mat = target_sales_tons * 1000 * weighted_avg_rm_cost
+est_annual_meters = target_sales_tons * (1000 / weighted_avg_gsm) * 1000 if weighted_avg_gsm > 0 else 0 
+annual_anilox = (est_annual_meters / (anilox_life * 1000000)) * anilox_price * 8 if anilox_life > 0 else 0
+annual_blade = (est_annual_meters / (blade_life * 1000)) * blade_price * 8 if blade_life > 0 else 0
+annual_endseals = (net_running_hrs / endseal_life) * endseal_price * 8 if endseal_life > 0 else 0
+
+annual_consumables = annual_anilox + annual_blade + annual_endseals 
+annual_hr_admin = (monthly_payroll + admin_expenses) * 12
+total_cogs_opex = annual_raw_mat + annual_consumables + annual_hr_admin + power_cost_annual
+net_profit = total_revenue - total_cogs_opex
+payback = total_capex / net_profit if net_profit > 0 else 0
+
 with tabs[5]:
     st.header("P&L Dashboard")
-    annual_raw_mat = target_sales_tons * 1000 * weighted_avg_rm_cost
-    est_annual_meters = target_sales_tons * (1000 / weighted_avg_gsm) * 1000 if weighted_avg_gsm > 0 else 0 
-    
-    annual_anilox = (est_annual_meters / (anilox_life * 1000000)) * anilox_price * 8 if anilox_life > 0 else 0
-    annual_blade = (est_annual_meters / (blade_life * 1000)) * blade_price * 8 if blade_life > 0 else 0
-    annual_endseals = (net_running_hrs / endseal_life) * endseal_price * 8 if endseal_life > 0 else 0
-    
-    annual_consumables = annual_anilox + annual_blade + annual_endseals 
-    annual_hr_admin = (monthly_payroll + admin_expenses) * 12
-    total_cogs_opex = annual_raw_mat + annual_consumables + annual_hr_admin + power_cost_annual
-    net_profit = total_revenue - total_cogs_opex
-    payback = total_capex / net_profit if net_profit > 0 else 0
-
     col_res1, col_res2, col_res3, col_res4 = st.columns(4)
     col_res1.metric("Revenue (SAR)", f"{total_revenue:,.0f}")
     col_res2.metric("Total OPEX (SAR)", f"{total_cogs_opex:,.0f}")
@@ -239,4 +242,54 @@ with tabs[5]:
             "Amount (SAR)": [total_revenue, annual_raw_mat, annual_consumables, monthly_payroll * 12, admin_expenses * 12, power_cost_annual, net_profit, total_capex]
         }).to_excel(writer, index=False, sheet_name='PNL')
 
-    st.download_button(label="📥 Download P&L (Excel)", data=buffer.getvalue(), file_name="Flexo_Plant_PNL.xlsx", mime="application/vnd.ms-excel", use_container_width=True)
+    st.download_button(
+        label="📥 Download P&L (Excel)", 
+        data=buffer.getvalue(), 
+        file_name="NexFlexo_Plant_PNL.xlsx", 
+        mime="application/vnd.ms-excel", 
+        use_container_width=True
+    )
+
+with tabs[6]:
+    st.header("Commercial & Turnover")
+    
+    st.subheader("🔄 1. Financial Turnover Metrics")
+    asset_turnover = total_revenue / total_capex if total_capex > 0 else 0
+    roi = (net_profit / total_capex) * 100 if total_capex > 0 else 0
+    
+    c_t1, c_t2, c_t3 = st.columns(3)
+    c_t1.metric("Annual Turnover (Revenue)", f"SAR {total_revenue:,.0f}")
+    c_t2.metric("Asset Turnover Ratio", f"{asset_turnover:.2f}x", "Revenue generated per 1 SAR of CAPEX")
+    c_t3.metric("Return on Investment (ROI)", f"{roi:.1f}%")
+    
+    st.markdown("---")
+    st.subheader("📄 2. Smart Quotation Builder")
+    
+    col_q1, col_q2 = st.columns(2)
+    client_name = col_q1.text_input("Customer Name", "Valued Client")
+    
+    recipe_names = df_recipes["Structure"].tolist()
+    selected_recipe = col_q2.selectbox("Select Product for Quotation", recipe_names)
+    
+    selected_cost = 0
+    selected_gsm = 0
+    for item in details:
+        if item["Structure"] == selected_recipe:
+            selected_cost = item["Cost (SAR/Kg)"]
+            selected_gsm = item["Final GSM"]
+            break
+            
+    margin_pct = col_q1.number_input("Desired Profit Margin (%)", 5, 100, 20)
+    quoted_price = selected_cost * (1 + (margin_pct/100))
+    
+    if st.button("Generate Official Offer"):
+        st.markdown("### 🧾 Official Quotation")
+        st.info(f"""
+        **From:** NexFlexo  
+        **To:** {client_name}  
+        
+        **Product Specifications:** - Structure: {selected_recipe}  
+        - Total GSM: {selected_gsm} g/m²  
+        
+        **Commercial Offer:** - Price per Kg: **SAR {quoted_price:.2f}** *Best Regards,* *Waheed Alkarraein* *Owner, NexFlexo*
+        """)
