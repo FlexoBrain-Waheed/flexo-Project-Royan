@@ -23,9 +23,12 @@ with tabs[1]:
     d_yr = cw1.number_input("Days/Yr", 300)
     s_day = cw1.number_input("Shifts/Day", 2)
     h_sh = cw1.number_input("Hrs/Shift", 12)
-    j_mo = cw2.number_input("Jobs/Mo", 100)
+    
+    # تم تعديل التوقفات (الطلبيات) إلى 75 هنا
+    j_mo = cw2.number_input("Jobs/Mo", 75)
     c_hrs = cw2.number_input("C.O. Hrs", 2.0)
     kw_p = cw3.number_input("SAR/kWh", 0.18)
+    
     net_hrs = (d_yr * s_day * h_sh) - (j_mo * 12 * c_hrs)
     st.success(f"✅ Net Running Hours / Year: {net_hrs:,.0f}")
     
@@ -41,7 +44,6 @@ with tabs[1]:
     with m2:
         f_s = st.number_input("Flexo Speed", 350.0)
         f_w = st.number_input("Flexo Width", 1.0)
-        # تم تعديل الكفاءة هنا إلى 90%
         f_e = st.slider("Flexo Eff%", 40, 100, 90)
         f_k = st.number_input("Flexo kW", 150.0)
         f_pr = st.number_input("Flexo CAPEX", 8000000.0)
