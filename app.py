@@ -41,7 +41,6 @@ with tabs[1]:
     with m2:
         f_s = st.number_input("Flexo Speed", 350.0)
         f_w = st.number_input("Flexo Width", 1.0)
-        # تم تعديل الكفاءة هنا إلى 80%
         f_e = st.slider("Flexo Eff%", 40, 100, 80)
         f_k = st.number_input("Flexo kW", 150.0)
         f_pr = st.number_input("Flexo CAPEX", 8000000.0)
@@ -191,6 +190,12 @@ with tabs[4]:
     w_gsm = 0.0; w_flexo_gsm = 0.0; w_rmc = 0.0; w_sp = 0.0; l_mix = 0.0
     t_ink_k = 0.0; t_slv_k = 0.0; t_adh_k = 0.0
     t_pe_req_tons = 0.0  
+    
+    # 🌟 متغير جديد لحساب إجمالي "المتر الطولي" المطلوب للطباعة فقط
+    t_flexo_lm_req = 0.0
+    t_lam_sqm_req = 0.0
+    t_total_sqm_req = 0.0
+    
     dets = []; m_nd = {}
     
     for _, r in df_rec.iterrows():
@@ -227,11 +232,18 @@ with tabs[4]:
         
         if tg > 0:
             sq = (r_ton * 1000000.0) / tg
+            t_total_sqm_req += sq  
+            
             if std_w > 0: l_len = sq / std_w
             
             if is_printed:
+                # نحسب المتر الطولي للمنتج المطبوع ونضيفه للاحتياج
+                t_flexo_lm_req += l_len  
                 t_ink_k += (sq * w_ink) / 1000.0
                 t_slv_k += (sq * w_ink * 0.5) / 1000.0
+                
+            if lp > 0:
+                t_lam_sqm_req += sq  
                 
             t_adh_k += (sq * ag) / 1000.0
             t_pe_req_tons += r_ton * (pe_layer_gsm / tg)
@@ -246,7 +258,6 @@ with tabs[4]:
         w_flexo_gsm += flexo_g * mr
         w_rmc += cpk * mr
         w_sp += r["Price"] * mr
-        if lp > 0: l_mix += mr
             
         dets.append({
             "Product": r["Product"], "Printed": "✅" if is_printed else "❌", "Tons": r_ton, 
@@ -273,20 +284,25 @@ with tabs[4]:
     ck2.metric("🧪 Solv Kg/Mo", f"{t_slv_k/12:,.0f}")
     ck3.metric("🍯 Adh Kg/Mo", f"{t_adh_k/12:,.0f}")
     
-    fx_max = (f_sq * w_flexo_gsm) / 1000000.0 if w_flexo_gsm > 0 else 999999.0
-    sl_max = (s_sq * w_gsm) / 1000000.0
-    bg_max = (b_sq * w_gsm) / 1000000.0
-    lm_max = (l_sq * w_gsm) / 1000000.0 / l_mix if l_mix > 0 else 999999.0
+    # حساب القدرات لبقية الماكينات
+    lm_max = t_tons * (l_sq / t_lam_sqm_req) if t_lam_sqm_req > 0 else 999999.0
+    sl_max = t_tons * (s_sq / t_total_sqm_req) if t_total_sqm_req > 0 else 999999.0
+    bg_max = t_tons * (b_sq / t_total_sqm_req) if t_total_sqm_req > 0 else 999999.0
         
     st.markdown("### 🚦 5. Exact Line Balancing (Tons & Meters)")
     cb1, cb2, cb3, cb4, cb5 = st.columns(5)
     
+    # 1. الإكسترودر يقارن بالـ PE المطلوب
     if t_pe_req_tons <= e_tons: cb1.success(f"Ext: {e_tons:,.0f} T | Need PE: {t_pe_req_tons:,.0f} T")
     else: cb1.error(f"Ext: {e_tons:,.0f} T | Need PE: {t_pe_req_tons:,.0f} T")
         
-    if t_tons <= fx_max: cb2.success(f"Flx: {fx_max:,.0f} T | {f_lm/1000000:,.1f}M m")
-    else: cb2.error(f"Flx: {fx_max:,.0f} T | {f_lm/1000000:,.1f}M m")
+    # 2. الفلكسو الآن يقارن (بالمتر الطولي) فقط!
+    if t_flexo_lm_req <= f_lm: 
+        cb2.success(f"Flx Cap: {f_lm/1000000:,.2f}M m | Need: {t_flexo_lm_req/1000000:,.2f}M m")
+    else: 
+        cb2.error(f"Flx Cap: {f_lm/1000000:,.2f}M m | Need: {t_flexo_lm_req/1000000:,.2f}M m")
     
+    # البقية بالطن
     if t_tons <= lm_max: cb3.success(f"Lam: {lm_max:,.0f} T | {l_lm/1000000:,.1f}M m")
     else: cb3.error(f"Lam: {lm_max:,.0f} T | {l_lm/1000000:,.1f}M m")
     
