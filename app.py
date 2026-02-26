@@ -8,8 +8,8 @@ st.title("🏭 NexFlexo Smart Plant Simulator")
 st.markdown("---")
 
 tabs = st.tabs([
-    "1. Raw Materials", "2. Production & Power", "3. Consumables", 
-    "4. HR & OPEX", "5. Recipes", "6. P&L", "7. Commercial"
+    "1. Raw Materials", "2. Production (OEE)", "3. Consumables", 
+    "4. HR & OPEX", "5. Recipes", "6. P&L Dashboard", "7. Commercial"
 ])
 
 # --- TAB 1 ---
@@ -41,7 +41,7 @@ with tabs[0]:
 
 # --- TAB 2 ---
 with tabs[1]:
-    st.header("Production Capacity & Schedule")
+    st.header("Production Capacity & OEE")
     col_w1, col_w2 = st.columns(2)
     work_days = col_w1.number_input("Working Days/Year", 300)
     shifts_day = col_w1.number_input("Shifts/Day", 2)
@@ -67,11 +67,9 @@ with tabs[1]:
         f_eff = st.slider("Flexo Efficiency %", 40, 100, 70)
         f_kw = st.number_input("Flexo Power (kW)", 150.0)
         f_price = st.number_input("Flexo Price (SAR)", 8000000)
-        
         f_lin_m = net_running_hrs * 60 * f_speed * (f_eff / 100)
         f_sq_m = f_lin_m * f_width
         f_power_cost = net_running_hrs * f_kw * price_per_kwh
-        
         st.info(f"📏 Linear: {f_lin_m:,.0f} m\n🔲 Area: {f_sq_m:,.0f} Sq.m\n⚡ Power Cost: SAR {f_power_cost:,.0f}")
 
     with m2:
@@ -81,11 +79,9 @@ with tabs[1]:
         l_eff = st.slider("Lam Efficiency %", 40, 100, 75)
         l_kw = st.number_input("Lam Power (kW)", 80.0)
         l_price = st.number_input("Lam Price (SAR)", 1200000)
-        
         l_lin_m = net_running_hrs * 60 * l_speed * (l_eff / 100)
         l_sq_m = l_lin_m * l_width
         l_power_cost = net_running_hrs * l_kw * price_per_kwh
-        
         st.info(f"📏 Linear: {l_lin_m:,.0f} m\n🔲 Area: {l_sq_m:,.0f} Sq.m\n⚡ Power Cost: SAR {l_power_cost:,.0f}")
 
     with m3:
@@ -95,11 +91,9 @@ with tabs[1]:
         s_eff = st.slider("Slitter Efficiency %", 40, 100, 80)
         s_kw = st.number_input("Slitter Power (kW)", 40.0)
         s_price = st.number_input("Slitter Price (SAR)", 800000)
-        
         s_lin_m = net_running_hrs * 60 * s_speed * (s_eff / 100)
         s_sq_m = s_lin_m * s_width
         s_power_cost = net_running_hrs * s_kw * price_per_kwh
-        
         st.info(f"📏 Linear: {s_lin_m:,.0f} m\n🔲 Area: {s_sq_m:,.0f} Sq.m\n⚡ Power Cost: SAR {s_power_cost:,.0f}")
 
     total_capex = f_price + l_price + s_price + 500000 
@@ -135,8 +129,6 @@ with tabs[3]:
     st.markdown("---")
     c_op1, c_op2 = st.columns(2)
     admin_expenses = c_op1.number_input("Monthly Admin Expenses (Rent, etc.)", 40000)
-    
-    # Power cost is now auto-calculated and displayed here as read-only
     c_op2.metric("Annual Power Cost (Auto-calculated from machines)", f"SAR {power_cost_annual:,.0f}")
     
     monthly_payroll = (engineers*eng_salary) + (operators*op_salary) + (workers*worker_salary) + (admin_sales*as_salary)
@@ -153,7 +145,10 @@ with tabs[4]:
     solvent_ratio = 0.5 
     
     st.markdown("---")
-    target_sales_tons = st.number_input("Target Annual Sales (Tons)", 1200)
+    
+    # === التعديل تم هنا (تغيير 1200 إلى 3600) ===
+    target_sales_tons = st.number_input("Target Annual Sales (Tons)", 3600)
+    # ============================================
     
     recipe_data = [
         {"Structure": "1 Layer", "L1": "BOPP", "Mic_1": 38, "L2": "None", "Mic_2": 0, "L3": "None", "Mic_3": 0, "Mix_%": 60, "Sell_Price": 12.0},
@@ -239,3 +234,14 @@ with tabs[4]:
     def render_capacity(col, name, max_tons, target):
         if target > max_tons: col.error(f"❌ **{name}**\n\nMax: {max_tons:,.0f} T")
         else: col.success(f"✅ **{name}**\n\nMax: {max_tons:,.0f} T")
+
+    render_capacity(cb1, "Flexo", flexo_max_tons, target_sales_tons)
+    render_capacity(cb2, "Lamination", lam_max_tons, target_sales_tons)
+    render_capacity(cb3, "Slitter", slit_max_tons, target_sales_tons)
+
+# --- TAB 6 & 7 (Finance & Quotation) ---
+annual_raw_mat = target_sales_tons * 1000 * weighted_avg_rm_cost
+est_annual_meters = target_sales_tons * (1000 / weighted_avg_gsm) * 1000 if weighted_avg_gsm > 0 else 0 
+annual_anilox = (est_annual_meters / (anilox_life * 1000000)) * anilox_price * 8 if anilox_life > 0 else 0
+annual_blade = (est_annual_meters / (blade_life * 1000)) * blade_price * 8 if blade_life > 0 else 0
+annual_endseals = (net_running_hrs / endseal_
