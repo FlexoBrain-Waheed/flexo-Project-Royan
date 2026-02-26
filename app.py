@@ -164,7 +164,7 @@ with tabs[3]:
     cp2.metric("Total Monthly Payroll", f"SAR {payroll:,.0f}")
     cp3.metric("Annual Power Cost", f"SAR {t_pwr:,.0f}")
 
-# --- TAB 5 (WITH "PRINT?" CHECKBOX LOGIC) ---
+# --- TAB 5 ---
 with tabs[4]:
     st.markdown("### ⚙️ 1. Global Production Settings")
     c_set1, c_set2, c_set3, c_set4, c_set5 = st.columns(5)
@@ -178,12 +178,13 @@ with tabs[4]:
     st.markdown("### 📋 2. Product Portfolio (Recipes)")
     st.info(f"💡 **Tip:** Uncheck the 'Print' box for plain films. It will bypass ink costs and Flexo capacity!")
     
-    # تمت إضافة الصنف الجديد "Shrink Plain" وإضافة حقل "Print" (صح أو خطأ)
+    # تم تعديل النسب لتتوافق مع طلبك 100% وإضافة منتج أكياس التسوق المطبوعة
     init_data = [
-        {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 30, "Price": 12.0},
-        {"Product": "2 Lyr", "Print": True, "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 40, "Price": 13.0},
-        {"Product": "3 Lyr", "Print": True, "L1": "PET", "M1": 12, "L2": "ALU", "M2": 7, "L3": "PE", "M3": 50, "Mix%": 10, "Price": 15.0},
-        {"Product": "Shrink Plain", "Print": False, "L1": "PE", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 10.0}
+        {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 10, "Price": 12.0},
+        {"Product": "2 Lyr", "Print": True, "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 15, "Price": 13.0},
+        {"Product": "3 Lyr", "Print": True, "L1": "PET", "M1": 12, "L2": "ALU", "M2": 7, "L3": "PE", "M3": 50, "Mix%": 5, "Price": 15.0},
+        {"Product": "Shrink Plain", "Print": False, "L1": "PE", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 50, "Price": 5.0},
+        {"Product": "Printed Shop. Bag", "Print": True, "L1": "PE", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 9.0}
     ]
     df_rec = st.data_editor(pd.DataFrame(init_data), num_rows="dynamic", use_container_width=True)
     
@@ -193,13 +194,12 @@ with tabs[4]:
     dets = []; m_nd = {}
     
     for _, r in df_rec.iterrows():
-        is_printed = r.get("Print", True) # قراءة ما إذا كان المنتج مطبوعاً أم سادة
+        is_printed = r.get("Print", True)
         
         g1 = r["M1"] * mat_db[r["L1"]]["d"]
         g2 = r["M2"] * mat_db[r["L2"]]["d"]
         g3 = r["M3"] * mat_db[r["L3"]]["d"]
         
-        # وزن الفلكسو يكون صفراً إذا كان المنتج "بدون طباعة"
         flexo_g = (g1 + d_ink) if is_printed else 0.0 
         
         pe_layer_gsm = 0.0
@@ -212,16 +212,12 @@ with tabs[4]:
         if r["M3"] > 0: lp += 1
         
         ag = lp * a_gsm
-        
-        # لا نضيف وزن الحبر (d_ink) للوزن النهائي إذا كان سادة
         tg = g1 + g2 + g3 + ag + (d_ink if is_printed else 0.0)
         
         c1 = (g1/1000.0) * mat_db[r["L1"]]["p"]
         c2 = (g2/1000.0) * mat_db[r["L2"]]["p"]
         c3 = (g3/1000.0) * mat_db[r["L3"]]["p"]
         ca = (ag/1000.0) * adh_p
-        
-        # لا نحسب تكلفة الحبر والسولفنت إذا كان سادة
         ci = ((w_ink/1000.0) * ink_p) if is_printed else 0.0
         cs = ((w_ink*0.5/1000.0) * solv_p) if is_printed else 0.0
         
@@ -233,7 +229,6 @@ with tabs[4]:
             sq = (r_ton * 1000000.0) / tg
             if std_w > 0: l_len = sq / std_w
             
-            # نحسب استهلاك المصنع للحبر والسولفنت للمنتجات المطبوعة فقط
             if is_printed:
                 t_ink_k += (sq * w_ink) / 1000.0
                 t_slv_k += (sq * w_ink * 0.5) / 1000.0
