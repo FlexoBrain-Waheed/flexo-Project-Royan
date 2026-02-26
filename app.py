@@ -167,4 +167,27 @@ roi = (n_prof / t_capex) * 100 if t_capex > 0 else 0
 
 with tabs[5]:
     cr1, cr2, cr3, cr4 = st.columns(4)
-    cr
+    cr1.metric("Rev", f"{tot_rev:,.0f}"); cr2.metric("Total Cost", f"{t_opex:,.0f}"); cr3.metric("Profit", f"{n_prof:,.0f}"); cr4.metric("Payback", f"{pbk:.1f}y")
+    st.info(f"Includes Annual Depr. SAR {ann_dep:,.0f}")
+    
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
+        pd.DataFrame({"Metric":["CAPEX","Tons","Rev","Cost","Profit","ROI%","Payback"], "Val":[t_capex,t_tons,tot_rev,t_opex,n_prof,f"{roi:.1f}%",pbk]}).to_excel(w, index=False, sheet_name='Exec')
+        pd.DataFrame({"Metric":["Hrs","Tons","Fx Max","Lm Max","Sl Max"], "Val":[net_hrs,t_tons,fx_max,lm_max,sl_max]}).to_excel(w, index=False, sheet_name='Ops')
+        pd.DataFrame(dets).to_excel(w, index=False, sheet_name='Mix')
+        pd.DataFrame({"Item":["Mats","Cons","HR","Admin","Pwr","Depr"], "SAR":[a_rm,a_cons,payroll*12,adm_exp*12,t_pwr,ann_dep]}).to_excel(w, index=False, sheet_name='Costs')
+        pd.DataFrame({"Chem":["Ink","Solv","Adh"], "Mo Kg":[t_ink_k/12,t_slv_k/12,t_adh_k/12]}).to_excel(w, index=False, sheet_name='Chem')
+    st.download_button("📥 Excel Report", buf.getvalue(), "NexFlexo.xlsx", "application/vnd.ms-excel", use_container_width=True)
+
+with tabs[6]:
+    ct1, ct2, ct3 = st.columns(3)
+    ct1.metric("Turnover", f"SAR {tot_rev:,.0f}"); ct2.metric("Asset Turn", f"{atr:.2f}x"); ct3.metric("ROI", f"{roi:.1f}%")
+    st.markdown("---")
+    cq1, cq2 = st.columns(2)
+    cn = cq1.text_input("Customer", "Valued Client")
+    sr = cq2.selectbox("Product", [i["Product"] for i in dets])
+    sc = next((i["Cost/Kg"] for i in dets if i["Product"] == sr), 0)
+    sg = next((i["GSM"] for i in dets if i["Product"] == sr), 0)
+    mp = cq1.number_input("Margin %", 5, 100, 20)
+    if st.button("Generate Offer"):
+        st.info(f"**To:** {cn}\n\n**Product:** {sr} ({sg} g/m²)\n\n**Price/Kg:** SAR {sc * (1 + mp/100):.2f}\n\n*Waheed Waleed Malik, NexFlexo*")
