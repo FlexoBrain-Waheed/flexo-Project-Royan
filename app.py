@@ -41,7 +41,8 @@ with tabs[1]:
     with m2:
         f_s = st.number_input("Flexo Speed", 350.0)
         f_w = st.number_input("Flexo Width", 1.0)
-        f_e = st.slider("Flexo Eff%", 40, 100, 70)
+        # تم تعديل الكفاءة هنا إلى 90%
+        f_e = st.slider("Flexo Eff%", 40, 100, 90)
         f_k = st.number_input("Flexo kW", 150.0)
         f_pr = st.number_input("Flexo CAPEX", 8000000.0)
         f_lm = net_hrs * 60.0 * f_s * (f_e/100.0)
@@ -86,7 +87,6 @@ with tabs[1]:
     st.subheader("📊 Machines Capacity Check (Tons/Year)")
     est_gsm = st.number_input("Estimated Total Avg GSM for Chart", 40.0)
     
-    # نسبة تقريبية للفلكسو في الشارت فقط للتوضيح (يتم حسابها بدقة في صفحة Recipes)
     est_flexo_gsm = est_gsm * 0.45 
     
     df_chart = pd.DataFrame({
@@ -170,7 +170,6 @@ with tabs[4]:
         g2 = r["M2"] * mat_db[r["L2"]]["d"]
         g3 = r["M3"] * mat_db[r["L3"]]["d"]
         
-        # الذكاء هنا: الفلكسو يطبع فقط على الطبقة الأولى ويضيف الحبر!
         flexo_g = g1 + d_ink 
         
         lp = 0
@@ -206,7 +205,7 @@ with tabs[4]:
                     
         mr = r["Mix%"] / 100.0
         w_gsm += tg * mr
-        w_flexo_gsm += flexo_g * mr  # تم إضافة متوسط وزن الفلكسو الحقيقي
+        w_flexo_gsm += flexo_g * mr
         w_rmc += cpk * mr
         w_sp += r["Price"] * mr
         if lp > 0: l_mix += mr
@@ -237,7 +236,6 @@ with tabs[4]:
     ck2.metric("🧪 Solv Kg/Mo", f"{t_slv_k/12:,.0f}")
     ck3.metric("🍯 Adh Kg/Mo", f"{t_adh_k/12:,.0f}")
     
-    # هنا الحساب الدقيق للفلكسو (المتر الطولي × وزن الطبقة الأولى والحبر فقط)
     fx_max = (f_sq * w_flexo_gsm) / 1000000.0 
     
     sl_max = (s_sq * w_gsm) / 1000000.0
