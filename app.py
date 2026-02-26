@@ -84,10 +84,14 @@ with tabs[1]:
         
     st.markdown("---")
     st.subheader("📊 Machines Capacity Check (Tons/Year)")
-    est_gsm = st.number_input("Estimated Avg GSM for Chart", 40.0)
+    est_gsm = st.number_input("Estimated Total Avg GSM for Chart", 40.0)
+    
+    # نسبة تقريبية للفلكسو في الشارت فقط للتوضيح (يتم حسابها بدقة في صفحة Recipes)
+    est_flexo_gsm = est_gsm * 0.45 
+    
     df_chart = pd.DataFrame({
         "Machine": ["1. Extruder", "2. Flexo", "3. Lamination", "4. Slitter", "5. Bag Making"],
-        "Max Tons / Year": [e_tons, (f_sq*est_gsm)/1000000, (l_sq*est_gsm)/1000000, (s_sq*est_gsm)/1000000, (b_sq*est_gsm)/1000000]
+        "Max Tons / Year": [e_tons, (f_sq*est_flexo_gsm)/1000000, (l_sq*est_gsm)/1000000, (s_sq*est_gsm)/1000000, (b_sq*est_gsm)/1000000]
     })
     st.plotly_chart(px.bar(df_chart, x="Machine", y="Max Tons / Year", color="Machine", text_auto='.0f'), use_container_width=True)
     
@@ -157,7 +161,7 @@ with tabs[4]:
     ]
     df_rec = st.data_editor(pd.DataFrame(init_data), num_rows="dynamic", use_container_width=True)
     
-    w_gsm = 0.0; w_rmc = 0.0; w_sp = 0.0; l_mix = 0.0
+    w_gsm = 0.0; w_flexo_gsm = 0.0; w_rmc = 0.0; w_sp = 0.0; l_mix = 0.0
     t_ink_k = 0.0; t_slv_k = 0.0; t_adh_k = 0.0
     dets = []; m_nd = {}
     
@@ -165,6 +169,9 @@ with tabs[4]:
         g1 = r["M1"] * mat_db[r["L1"]]["d"]
         g2 = r["M2"] * mat_db[r["L2"]]["d"]
         g3 = r["M3"] * mat_db[r["L3"]]["d"]
+        
+        # الذكاء هنا: الفلكسو يطبع فقط على الطبقة الأولى ويضيف الحبر!
+        flexo_g = g1 + d_ink 
         
         lp = 0
         if r["M2"] > 0: lp += 1
@@ -199,13 +206,14 @@ with tabs[4]:
                     
         mr = r["Mix%"] / 100.0
         w_gsm += tg * mr
+        w_flexo_gsm += flexo_g * mr  # تم إضافة متوسط وزن الفلكسو الحقيقي
         w_rmc += cpk * mr
         w_sp += r["Price"] * mr
         if lp > 0: l_mix += mr
             
         dets.append({
             "Product": r["Product"], "Tons": r_ton, 
-            "Length(m)": l_len, "GSM": tg, 
+            "Length(m)": l_len, "GSM": tg, "Flexo GSM": flexo_g,
             "Cost/Kg": cpk, "Margin": r["Price"]-cpk
         })
         
@@ -214,14 +222,12 @@ with tabs[4]:
     col_t1, col_t2 = st.columns([6, 4])
     
     with col_t1:
-        # تنسيق الجداول لإظهار الفواصل (,) بدقة ممتازة
-        st.dataframe(df_dets.style.format({"Tons": "{:,.1f}", "Length(m)": "{:,.0f}", "GSM": "{:,.1f}", "Cost/Kg": "{:,.2f}", "Margin": "{:,.2f}"}), use_container_width=True)
+        st.dataframe(df_dets[["Product", "Tons", "Length(m)", "GSM", "Flexo GSM", "Cost/Kg", "Margin"]].style.format({"Tons": "{:,.1f}", "Length(m)": "{:,.0f}", "GSM": "{:,.1f}", "Flexo GSM": "{:,.1f}", "Cost/Kg": "{:,.2f}", "Margin": "{:,.2f}"}), use_container_width=True)
     with col_t2:
         if m_nd:
             df_m_nd = pd.DataFrame([{"Material Roll": k, "Linear Meters": v} for k, v in m_nd.items()])
             st.dataframe(df_m_nd.style.format({"Linear Meters": "{:,.0f}"}), use_container_width=True)
             
-    # رسم بياني لهامش الربح لكل منتج
     fig_margin = px.bar(df_dets, x="Product", y="Margin", color="Product", title="💰 Profit Margin per Product (SAR/Kg)", text_auto=".2f")
     st.plotly_chart(fig_margin, use_container_width=True)
     
@@ -231,7 +237,9 @@ with tabs[4]:
     ck2.metric("🧪 Solv Kg/Mo", f"{t_slv_k/12:,.0f}")
     ck3.metric("🍯 Adh Kg/Mo", f"{t_adh_k/12:,.0f}")
     
-    fx_max = (f_sq * w_gsm) / 1000000.0
+    # هنا الحساب الدقيق للفلكسو (المتر الطولي × وزن الطبقة الأولى والحبر فقط)
+    fx_max = (f_sq * w_flexo_gsm) / 1000000.0 
+    
     sl_max = (s_sq * w_gsm) / 1000000.0
     bg_max = (b_sq * w_gsm) / 1000000.0
     lm_max = (l_sq * w_gsm) / 1000000.0 / l_mix if l_mix > 0 else 999999.0
@@ -281,7 +289,6 @@ with tabs[5]:
     cr4.metric("Payback Period", f"{pbk:.1f} Years")
     st.info(f"ℹ️ Total Cost includes Annual Depreciation of SAR {ann_dep:,.0f}")
     
-    # رسم بياني لتوزيع التكاليف والأرباح
     fig_pie = px.pie(
         names=["Raw Materials", "Consumables", "HR & Admin", "Power", "Depreciation", "Net Profit"],
         values=[a_rm, a_cons, a_hr, t_pwr, ann_dep, n_prof if n_prof > 0 else 0],
