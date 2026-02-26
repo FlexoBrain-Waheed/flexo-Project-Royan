@@ -82,6 +82,27 @@ with tabs[1]:
         b_pc = net_hrs * b_k * kw_p
         st.info(f"📏 {b_lm:,.0f} m | ⚡ SAR {b_pc:,.0f}")
         
+    st.markdown("### 3. Utilities & Facilities")
+    u1, u2, u3 = st.columns(3)
+    with u1:
+        st.subheader("Building (Hangar)")
+        hng_pr = st.number_input("Hangar CAPEX", 4000000.0)
+        hng_dep_y = st.number_input("Hangar Depr Yrs", 10.0)
+    with u2:
+        st.subheader("Chiller (10 Units)")
+        chl_k = st.number_input("Chiller kW", 50.0)
+        chl_pr = st.number_input("Chiller CAPEX", 500000.0)
+        chl_dep_y = st.number_input("Chiller Depr Yrs", 10.0)
+        chl_pc = net_hrs * chl_k * kw_p
+        st.info(f"⚡ SAR {chl_pc:,.0f}")
+    with u3:
+        st.subheader("Air Compressor")
+        cmp_k = st.number_input("Compressor kW", 30.0)
+        cmp_pr = st.number_input("Compressor CAPEX", 250000.0)
+        cmp_dep_y = st.number_input("Comp. Depr Yrs", 10.0)
+        cmp_pc = net_hrs * cmp_k * kw_p
+        st.info(f"⚡ SAR {cmp_pc:,.0f}")
+
     st.markdown("---")
     st.subheader("📊 Machines Capacity Check (Tons/Year)")
     est_gsm = st.number_input("Estimated Total Avg GSM for Chart", 40.0)
@@ -93,11 +114,18 @@ with tabs[1]:
     st.plotly_chart(px.bar(df_chart, x="Machine", y="Max Tons / Year", color="Machine", text_auto='.0f'), use_container_width=True)
     
     c_cap1, c_cap2 = st.columns(2)
-    t_capex = e_pr + f_pr + l_pr + s_pr + b_pr + 500000.0
-    c_cap1.metric("Total CAPEX (Investment)", f"SAR {t_capex:,.0f}")
-    dep_y = c_cap2.number_input("Depreciation Yrs", 10.0)
-    ann_dep = t_capex / dep_y if dep_y > 0 else 0.0
-    t_pwr = e_pc + f_pc + l_pc + s_pc + b_pc
+    mac_capex = e_pr + f_pr + l_pr + s_pr + b_pr
+    t_capex = mac_capex + hng_pr + chl_pr + cmp_pr
+    c_cap1.metric("Total CAPEX (Machines + Utilities)", f"SAR {t_capex:,.0f}")
+    
+    mac_dep_y = c_cap2.number_input("Machines Depreciation Yrs", 10.0)
+    mac_dep = mac_capex / mac_dep_y if mac_dep_y > 0 else 0.0
+    hng_dep = hng_pr / hng_dep_y if hng_dep_y > 0 else 0.0
+    chl_dep = chl_pr / chl_dep_y if chl_dep_y > 0 else 0.0
+    cmp_dep = cmp_pr / cmp_dep_y if cmp_dep_y > 0 else 0.0
+    ann_dep = mac_dep + hng_dep + chl_dep + cmp_dep
+    
+    t_pwr = e_pc + f_pc + l_pc + s_pc + b_pc + chl_pc + cmp_pc
 
 # --- TAB 3 ---
 with tabs[2]:
@@ -280,9 +308,6 @@ with tabs[5]:
     )
     st.plotly_chart(fig_pie, use_container_width=True)
     
-    # ---------------------------------------------------------
-    # 🪄 محرك الإكسيل المتقدم (معادلات + تنسيقات + رأس مال عامل)
-    # ---------------------------------------------------------
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
         wb = w.book
@@ -311,14 +336,15 @@ with tabs[5]:
         cx_data = [
             ['Production Line', 'Extruder', e_pr], ['Production Line', 'Flexo CI', f_pr],
             ['Production Line', 'Lamination', l_pr], ['Production Line', 'Slitter', s_pr],
-            ['Production Line', 'Bag Making', b_pr], ['Facilities', 'Building/Setup', 500000.0]
+            ['Production Line', 'Bag Making', b_pr], ['Facilities', 'Building (Hangar)', hng_pr],
+            ['Facilities', 'Chiller (10 Units)', chl_pr], ['Facilities', 'Air Compressor', cmp_pr]
         ]
         for i, (c, it, v) in enumerate(cx_data, 1):
             ws2.write(i, 0, c, l_fmt); ws2.write(i, 1, it, l_fmt); ws2.write_number(i, 2, v, c_fmt)
         ws2.write(len(cx_data)+1, 1, 'TOTAL CAPEX | الإجمالي', h_fmt)
         ws2.write_formula(len(cx_data)+1, 2, f'=SUM(C2:C{len(cx_data)+1})', h_fmt)
         
-        # 3. Working Capital (رأس المال العامل)
+        # 3. Working Capital
         ws3 = wb.add_worksheet('3. Working Capital')
         ws3.set_column('A:A', 35); ws3.set_column('B:D', 22)
         ws3.write_row('A1', ['Item (البند)', 'Monthly Cost (شهري)', 'Months (تغطية)', 'Total Required (التمويل)'], h_fmt)
@@ -331,7 +357,7 @@ with tabs[5]:
         ]
         for i, (it, v) in enumerate(wc_data, 1):
             ws3.write(i, 0, it, l_fmt); ws3.write_number(i, 1, v, c_fmt)
-            ws3.write_number(i, 2, 3, n_fmt) # 3 months coverage default
+            ws3.write_number(i, 2, 3, n_fmt) 
             ws3.write_formula(i, 3, f'=B{i+1}*C{i+1}', c_fmt)
         ws3.write(len(wc_data)+1, 0, 'TOTAL WORKING CAPITAL', h_fmt)
         ws3.write_formula(len(wc_data)+1, 3, f'=SUM(D2:D{len(wc_data)+1})', h_fmt)
