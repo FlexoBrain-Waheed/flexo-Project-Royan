@@ -1,4 +1,5 @@
-import streamlit as st, pandas as pd, io
+import streamlit as st, pandas as pd, io, plotly.express as px
+
 st.set_page_config(page_title="NexFlexo Plant", layout="wide")
 st.title("🏭 NexFlexo Smart Plant Simulator")
 
@@ -26,7 +27,7 @@ with tabs[1]:
     c_hrs = cw2.number_input("C.O. Hrs", 2.0)
     kw_p = cw3.number_input("SAR/kWh", 0.18)
     net_hrs = (d_yr * s_day * h_sh) - (j_mo * 12 * c_hrs)
-    st.success(f"✅ Net Running Hours / Year: {net_hrs}")
+    st.success(f"✅ Net Running Hours / Year: {net_hrs:,.0f}")
     
     st.markdown("### 1. Extrusion & Printing")
     m1, m2, m3 = st.columns(3)
@@ -81,11 +82,9 @@ with tabs[1]:
         b_pc = net_hrs * b_k * kw_p
         st.info(f"📏 {b_lm:,.0f} m | ⚡ SAR {b_pc:,.0f}")
         
-    import plotly.express as px
     st.markdown("---")
     st.subheader("📊 Machines Capacity Check (Tons/Year)")
     est_gsm = st.number_input("Estimated Avg GSM for Chart", 40.0)
-    
     df_chart = pd.DataFrame({
         "Machine": ["1. Extruder", "2. Flexo", "3. Lamination", "4. Slitter", "5. Bag Making"],
         "Max Tons / Year": [e_tons, (f_sq*est_gsm)/1000000, (l_sq*est_gsm)/1000000, (s_sq*est_gsm)/1000000, (b_sq*est_gsm)/1000000]
@@ -136,7 +135,7 @@ with tabs[3]:
     cp2.metric("Total Monthly Payroll", f"SAR {payroll:,.0f}")
     cp3.metric("Annual Power Cost", f"SAR {t_pwr:,.0f}")
 
-# --- TAB 5 (NEW LAYOUT) ---
+# --- TAB 5 ---
 with tabs[4]:
     st.markdown("### ⚙️ 1. Global Production Settings")
     c_set1, c_set2, c_set3, c_set4, c_set5 = st.columns(5)
@@ -152,7 +151,7 @@ with tabs[4]:
     st.info(f"💡 **Material Densities:** BOPP ({d_b}) | PET ({d_pt}) | PE ({d_pe}) | ALU ({d_al})")
     
     init_data = [
-        {"Product": "1 Lyr", "L1": "BOPP", "M1": 20, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 35, "Price": 12.0},
+        {"Product": "1 Lyr", "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 35, "Price": 12.0},
         {"Product": "2 Lyr", "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 55, "Price": 13.0},
         {"Product": "3 Lyr", "L1": "PET", "M1": 12, "L2": "ALU", "M2": 7, "L3": "PE", "M3": 50, "Mix%": 10, "Price": 15.0}
     ]
@@ -206,17 +205,25 @@ with tabs[4]:
             
         dets.append({
             "Product": r["Product"], "Tons": r_ton, 
-            "Length(m)": round(l_len,0), "GSM": round(tg,1), 
-            "Cost/Kg": round(cpk,2), "Margin": round(r["Price"]-cpk,2)
+            "Length(m)": l_len, "GSM": tg, 
+            "Cost/Kg": cpk, "Margin": r["Price"]-cpk
         })
         
-    st.markdown("### 📊 3. Production Breakdown & Raw Materials")
+    st.markdown("### 📊 3. Production Breakdown & Margins")
+    df_dets = pd.DataFrame(dets)
     col_t1, col_t2 = st.columns([6, 4])
+    
     with col_t1:
-        st.dataframe(pd.DataFrame(dets), use_container_width=True)
+        # تنسيق الجداول لإظهار الفواصل (,) بدقة ممتازة
+        st.dataframe(df_dets.style.format({"Tons": "{:,.1f}", "Length(m)": "{:,.0f}", "GSM": "{:,.1f}", "Cost/Kg": "{:,.2f}", "Margin": "{:,.2f}"}), use_container_width=True)
     with col_t2:
-        if m_nd: 
-            st.dataframe(pd.DataFrame([{"Material Roll": k, "Linear Meters": f"{v:,.0f} m"} for k, v in m_nd.items()]), use_container_width=True)
+        if m_nd:
+            df_m_nd = pd.DataFrame([{"Material Roll": k, "Linear Meters": v} for k, v in m_nd.items()])
+            st.dataframe(df_m_nd.style.format({"Linear Meters": "{:,.0f}"}), use_container_width=True)
+            
+    # رسم بياني لهامش الربح لكل منتج
+    fig_margin = px.bar(df_dets, x="Product", y="Margin", color="Product", title="💰 Profit Margin per Product (SAR/Kg)", text_auto=".2f")
+    st.plotly_chart(fig_margin, use_container_width=True)
     
     st.markdown("### 🧪 4. Monthly Chemicals")
     ck1, ck2, ck3 = st.columns(3)
@@ -231,7 +238,6 @@ with tabs[4]:
         
     st.markdown("### 🚦 5. Exact Line Balancing (Tons & Meters)")
     cb1, cb2, cb3, cb4, cb5 = st.columns(5)
-    
     if t_tons <= e_tons: cb1.success(f"Ext: {e_tons:,.0f} T")
     else: cb1.error(f"Ext: {e_tons:,.0f} T")
         
@@ -267,21 +273,31 @@ atr = tot_rev / t_capex if t_capex > 0 else 0.0
 roi = (n_prof / t_capex) * 100.0 if t_capex > 0 else 0.0
 
 with tabs[5]:
+    st.markdown("### 📈 Overall Plant Financials")
     cr1, cr2, cr3, cr4 = st.columns(4)
-    cr1.metric("Rev", f"{tot_rev:,.0f}")
-    cr2.metric("Total Cost", f"{t_opex:,.0f}")
-    cr3.metric("Profit", f"{n_prof:,.0f}")
-    cr4.metric("Payback", f"{pbk:.1f}y")
-    st.info(f"Includes Annual Depr. SAR {ann_dep:,.0f}")
+    cr1.metric("Gross Revenue", f"SAR {tot_rev:,.0f}")
+    cr2.metric("Total OPEX & Cost", f"SAR {t_opex:,.0f}")
+    cr3.metric("Net Profit", f"SAR {n_prof:,.0f}")
+    cr4.metric("Payback Period", f"{pbk:.1f} Years")
+    st.info(f"ℹ️ Total Cost includes Annual Depreciation of SAR {ann_dep:,.0f}")
+    
+    # رسم بياني لتوزيع التكاليف والأرباح
+    fig_pie = px.pie(
+        names=["Raw Materials", "Consumables", "HR & Admin", "Power", "Depreciation", "Net Profit"],
+        values=[a_rm, a_cons, a_hr, t_pwr, ann_dep, n_prof if n_prof > 0 else 0],
+        title="📊 Revenue Breakdown & Cost Allocation (SAR)",
+        hole=0.4
+    )
+    st.plotly_chart(fig_pie, use_container_width=True)
     
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
         pd.DataFrame({"Metric":["CAPEX","Tons","Rev","Cost","Profit","ROI%","Payback"], "Val":[t_capex,t_tons,tot_rev,t_opex,n_prof,f"{roi:.1f}%",pbk]}).to_excel(w, index=False, sheet_name='Exec')
         pd.DataFrame({"Metric":["Hrs","Tons","Ext Max","Fx Max","Lm Max","Sl Max","Bg Max"], "Val":[net_hrs,t_tons,e_tons,fx_max,lm_max,sl_max,bg_max]}).to_excel(w, index=False, sheet_name='Ops')
-        pd.DataFrame(dets).to_excel(w, index=False, sheet_name='Mix')
+        df_dets.to_excel(w, index=False, sheet_name='Mix')
         pd.DataFrame({"Item":["Mats","Cons","HR","Admin","Pwr","Depr"], "SAR":[a_rm,a_cons,payroll*12.0,adm_exp*12.0,t_pwr,ann_dep]}).to_excel(w, index=False, sheet_name='Costs')
         pd.DataFrame({"Chem":["Ink","Solv","Adh"], "Mo Kg":[t_ink_k/12.0,t_slv_k/12.0,t_adh_k/12.0]}).to_excel(w, index=False, sheet_name='Chem')
-    st.download_button("📥 Excel Report", buf.getvalue(), "NexFlexo.xlsx", "application/vnd.ms-excel", use_container_width=True)
+    st.download_button("📥 Download Full Excel Report", buf.getvalue(), "NexFlexo.xlsx", "application/vnd.ms-excel", use_container_width=True)
 
 with tabs[6]:
     ct1, ct2, ct3 = st.columns(3)
@@ -291,14 +307,11 @@ with tabs[6]:
     st.markdown("---")
     cq1, cq2 = st.columns(2)
     cn = cq1.text_input("Customer", "Valued Client")
-    
     pl = [i["Product"] for i in dets]
     sr = cq2.selectbox("Product", pl)
-    
     sc = next((i["Cost/Kg"] for i in dets if i["Product"] == sr), 0)
     sg = next((i["GSM"] for i in dets if i["Product"] == sr), 0)
-            
     mp = cq1.number_input("Margin %", 5, 100, 20)
     if st.button("Generate Offer"):
         fp = sc * (1.0 + (mp/100.0))
-        st.info(f"**To:** {cn}\n\n**Product:** {sr} ({sg} g/m²)\n\n**Price/Kg:** SAR {fp:.2f}\n\n*Waheed Waleed Malik, NexFlexo*")
+        st.info(f"**To:** {cn}\n\n**Product:** {sr} ({sg:,.1f} g/m²)\n\n**Price/Kg:** SAR {fp:,.2f}\n\n*Waheed Waleed Malik, NexFlexo*")
