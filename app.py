@@ -9,8 +9,7 @@ st.markdown("---")
 
 tabs = st.tabs([
     "1. Raw Materials", "2. Production (OEE)", "3. Consumables", 
-    "4. HR & OPEX", "5. Recipes & Balance", "6. P&L Dashboard", 
-    "7. Commercial & Turnover"
+    "4. HR & OPEX", "5. Recipes", "6. P&L", "7. Commercial"
 ])
 
 # --- TAB 1 ---
@@ -26,7 +25,13 @@ with tabs[0]:
     p_alu = c4.number_input("ALU Price/Kg", 18.0)
     d_alu = c4.number_input("ALU Density", 2.70)
 
-    mat_db = {"BOPP": {"p": p_bopp, "d": d_bopp}, "PET": {"p": p_pet, "d": d_pet}, "PE": {"p": p_pe, "d": d_pe}, "ALU": {"p": p_alu, "d": d_alu}, "None": {"p": 0.0, "d": 0.0}}
+    mat_db = {
+        "BOPP": {"p": p_bopp, "d": d_bopp},
+        "PET": {"p": p_pet, "d": d_pet},
+        "PE": {"p": p_pe, "d": d_pe},
+        "ALU": {"p": p_alu, "d": d_alu},
+        "None": {"p": 0.0, "d": 0.0}
+    }
     
     st.markdown("---")
     ci1, ci2, ci3 = st.columns(3)
@@ -48,7 +53,7 @@ with tabs[1]:
     total_downtime = (jobs_month * 12) * hrs_per_changeover
     net_running_hrs = total_avail_hrs - total_downtime
 
-    st.success(f"Available: {total_avail_hrs} Hrs | Downtime: {total_downtime} Hrs | Net Running: {net_running_hrs} Hrs")
+    st.success(f"Available: {total_avail_hrs} Hrs | Net Running: {net_running_hrs} Hrs")
     st.markdown("---")
     
     m1, m2, m3 = st.columns(3)
@@ -60,7 +65,7 @@ with tabs[1]:
         f_price = st.number_input("Flexo Price (SAR)", 8000000)
         f_lin_m = net_running_hrs * 60 * f_speed * (f_eff / 100)
         f_sq_m = f_lin_m * f_width
-        st.info(f"📏 Annual Linear: {f_lin_m:,.0f} m\n🔲 Annual Area: {f_sq_m:,.0f} Sq.m")
+        st.info(f"📏 Linear: {f_lin_m:,.0f} m\n🔲 Area: {f_sq_m:,.0f} Sq.m")
 
     with m2:
         st.subheader("2. Lamination")
@@ -70,7 +75,7 @@ with tabs[1]:
         l_price = st.number_input("Lam Price (SAR)", 1200000)
         l_lin_m = net_running_hrs * 60 * l_speed * (l_eff / 100)
         l_sq_m = l_lin_m * l_width
-        st.info(f"📏 Annual Linear: {l_lin_m:,.0f} m\n🔲 Annual Area: {l_sq_m:,.0f} Sq.m")
+        st.info(f"📏 Linear: {l_lin_m:,.0f} m\n🔲 Area: {l_sq_m:,.0f} Sq.m")
 
     with m3:
         st.subheader("3. Slitter")
@@ -80,7 +85,7 @@ with tabs[1]:
         s_price = st.number_input("Slitter Price (SAR)", 800000)
         s_lin_m = net_running_hrs * 60 * s_speed * (s_eff / 100)
         s_sq_m = s_lin_m * s_width
-        st.info(f"📏 Annual Linear: {s_lin_m:,.0f} m\n🔲 Annual Area: {s_sq_m:,.0f} Sq.m")
+        st.info(f"📏 Linear: {s_lin_m:,.0f} m\n🔲 Area: {s_sq_m:,.0f} Sq.m")
 
     total_capex = f_price + l_price + s_price + 500000 
 
@@ -107,17 +112,17 @@ with tabs[3]:
     as_salary = ch3.number_input("Admin/Sales Salary", 8000)
     
     st.markdown("---")
-    admin_expenses = st.number_input("Monthly Admin Expenses (Rent, etc.)", 40000)
+    admin_expenses = st.number_input("Monthly Admin Expenses", 40000)
     power_cost_annual = st.number_input("Annual Power Cost", 400000)
     monthly_payroll = (engineers*eng_salary) + (operators*op_salary) + (admin_sales*as_salary)
-    # --- TAB 5 ---
+
+# --- TAB 5 ---
 with tabs[4]:
     st.header("Recipes & Production Mix")
-    st.markdown("### 🧪 Chemicals & Weights Settings")
     col_c1, col_c2, col_c3 = st.columns(3)
     wet_ink_gsm = col_c1.number_input("Wet Ink Applied (g/m²)", value=5.0)
     ink_loss_percent = col_c2.number_input("Ink Evaporation Loss %", value=40)
-    adh_gsm_per_pass = col_c3.number_input("Adhesive per Lam Pass (g/m²)", value=1.8)
+    adh_gsm_per_pass = col_c3.number_input("Adhesive per Lam Pass", value=1.8)
     
     dry_ink_gsm = wet_ink_gsm * (1 - (ink_loss_percent / 100))
     solvent_ratio = 0.5 
@@ -195,24 +200,9 @@ with tabs[4]:
     st.markdown("---")
     st.subheader("💧 Monthly Chemical Consumption")
     col_chem1, col_chem2, col_chem3 = st.columns(3)
-    col_chem1.metric("🎨 Wet Ink (Kg / Month)", f"{total_annual_ink_kg / 12:,.0f} Kg")
-    col_chem2.metric("🧪 Solvent (Kg / Month)", f"{total_annual_solv_kg / 12:,.0f} Kg")
-    col_chem3.metric("🍯 Adhesive (Kg / Month)", f"{total_annual_adh_kg / 12:,.0f} Kg")
-
-    st.markdown("---")
-    st.subheader("🚦 Line Balancing & Bottleneck Check")
-    flexo_max_tons = (f_sq_m * weighted_avg_gsm) / 1000000
-    slit_max_tons = (s_sq_m * weighted_avg_gsm) / 1000000
-    lam_max_tons = (l_sq_m * weighted_avg_gsm) / 1000000 / lamination_mix_ratio if lamination_mix_ratio > 0 else 9999999 
-
-    cb1, cb2, cb3 = st.columns(3)
-    def render_capacity(col, name, max_tons, target):
-        if target > max_tons: col.error(f"❌ **{name}**\n\nMax: {max_tons:,.0f} T")
-        else: col.success(f"✅ **{name}**\n\nMax: {max_tons:,.0f} T")
-
-    render_capacity(cb1, "Flexo", flexo_max_tons, target_sales_tons)
-    render_capacity(cb2, "Lamination", lam_max_tons, target_sales_tons)
-    render_capacity(cb3, "Slitter", slit_max_tons, target_sales_tons)
+    col_chem1.metric("🎨 Wet Ink (Kg/Month)", f"{total_annual_ink_kg / 12:,.0f} Kg")
+    col_chem2.metric("🧪 Solvent (Kg/Month)", f"{total_annual_solv_kg / 12:,.0f} Kg")
+    col_chem3.metric("🍯 Adhesive (Kg/Month)", f"{total_annual_adh_kg / 12:,.0f} Kg")
 
 # --- TAB 6 & 7 (Finance & Quotation) ---
 annual_raw_mat = target_sales_tons * 1000 * weighted_avg_rm_cost
@@ -238,7 +228,7 @@ with tabs[5]:
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
         pd.DataFrame({
-            "Item": ["Total Revenue", "Materials (Films, Ink, Glue, Solvent)", "Consumables", "Payroll (HR)", "Admin & Rent", "Power", "Net Profit", "CAPEX"],
+            "Item": ["Total Revenue", "Materials", "Consumables", "Payroll (HR)", "Admin", "Power", "Net Profit", "CAPEX"],
             "Amount (SAR)": [total_revenue, annual_raw_mat, annual_consumables, monthly_payroll * 12, admin_expenses * 12, power_cost_annual, net_profit, total_capex]
         }).to_excel(writer, index=False, sheet_name='PNL')
 
@@ -258,9 +248,9 @@ with tabs[6]:
     roi = (net_profit / total_capex) * 100 if total_capex > 0 else 0
     
     c_t1, c_t2, c_t3 = st.columns(3)
-    c_t1.metric("Annual Turnover (Revenue)", f"SAR {total_revenue:,.0f}")
-    c_t2.metric("Asset Turnover Ratio", f"{asset_turnover:.2f}x", "Revenue generated per 1 SAR of CAPEX")
-    c_t3.metric("Return on Investment (ROI)", f"{roi:.1f}%")
+    c_t1.metric("Annual Turnover", f"SAR {total_revenue:,.0f}")
+    c_t2.metric("Asset Turnover Ratio", f"{asset_turnover:.2f}x")
+    c_t3.metric("ROI", f"{roi:.1f}%")
     
     st.markdown("---")
     st.subheader("📄 2. Smart Quotation Builder")
@@ -284,12 +274,12 @@ with tabs[6]:
     
     if st.button("Generate Official Offer"):
         st.markdown("### 🧾 Official Quotation")
-        st.info(f"""
+        st.info(f'''
         **From:** NexFlexo  
         **To:** {client_name}  
         
         **Product Specifications:** - Structure: {selected_recipe}  
         - Total GSM: {selected_gsm} g/m²  
         
-        **Commercial Offer:** - Price per Kg: **SAR {quoted_price:.2f}** *Best Regards,* *Waheed Alkarraein* *Owner, NexFlexo*
-        """)
+        **Commercial Offer:** - Price per Kg: **SAR {quoted_price:.2f}** *Best Regards,* *Waheed Waleed Malik* *Owner, NexFlexo*
+        ''')
