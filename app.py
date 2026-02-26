@@ -216,4 +216,4 @@ with tabs[6]:
     sg = next((i["GSM"] for i in dets if i["Product"] == sr), 0)
     mp = cq1.number_input("Margin %", 5, 100, 20)
     if st.button("Generate Offer"):
-        st.info(f"**To:**
+        st.info(f"**To:** {cn}\n\n**Product:** {sr} ({sg} g/m²)\n\n**Price/Kg:** SAR {sc * (1 + mp/100):.2f}\n\n*Waheed Waleed Malik, NexFlexo*")
