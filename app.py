@@ -187,6 +187,7 @@ with tabs[4]:
     
     w_gsm = 0.0; w_flexo_gsm = 0.0; w_rmc = 0.0; w_sp = 0.0; l_mix = 0.0
     t_ink_k = 0.0; t_slv_k = 0.0; t_adh_k = 0.0
+    t_pe_req_tons = 0.0  # متغير جديد لحساب احتياج الـ PE بالطن
     dets = []; m_nd = {}
     
     for _, r in df_rec.iterrows():
@@ -194,6 +195,13 @@ with tabs[4]:
         g2 = r["M2"] * mat_db[r["L2"]]["d"]
         g3 = r["M3"] * mat_db[r["L3"]]["d"]
         flexo_g = g1 + d_ink 
+        
+        # حساب وزن الـ PE في هذا المنتج فقط
+        pe_layer_gsm = 0.0
+        if r["L1"] == "PE": pe_layer_gsm += g1
+        if r["L2"] == "PE": pe_layer_gsm += g2
+        if r["L3"] == "PE": pe_layer_gsm += g3
+
         lp = 0
         if r["M2"] > 0: lp += 1
         if r["M3"] > 0: lp += 1
@@ -217,6 +225,9 @@ with tabs[4]:
             t_ink_k += (sq * w_ink) / 1000.0
             t_slv_k += (sq * w_ink * 0.5) / 1000.0
             t_adh_k += (sq * ag) / 1000.0
+            
+            # تراكم أطنان الـ PE المطلوبة بناءً على نسبة وزنه في هذا المنتج
+            t_pe_req_tons += r_ton * (pe_layer_gsm / tg)
             
             for lyr, mic in [("L1","M1"), ("L2","M2"), ("L3","M3")]:
                 if r[lyr] != "None" and r[mic] > 0:
@@ -262,8 +273,11 @@ with tabs[4]:
         
     st.markdown("### 🚦 5. Exact Line Balancing (Tons & Meters)")
     cb1, cb2, cb3, cb4, cb5 = st.columns(5)
-    if t_tons <= e_tons: cb1.success(f"Ext: {e_tons:,.0f} T")
-    else: cb1.error(f"Ext: {e_tons:,.0f} T")
+    
+    # التعديل العبقري: الإكسترودر يقارن قدرته مع "الـ PE المطلوب" فقط
+    if t_pe_req_tons <= e_tons: cb1.success(f"Ext: {e_tons:,.0f} T | Need PE: {t_pe_req_tons:,.0f} T")
+    else: cb1.error(f"Ext: {e_tons:,.0f} T | Need PE: {t_pe_req_tons:,.0f} T")
+        
     if t_tons <= fx_max: cb2.success(f"Flx: {fx_max:,.0f} T | {f_lm/1000000:,.1f}M m")
     else: cb2.error(f"Flx: {fx_max:,.0f} T | {f_lm/1000000:,.1f}M m")
     if t_tons <= lm_max: cb3.success(f"Lam: {lm_max:,.0f} T | {l_lm/1000000:,.1f}M m")
@@ -317,7 +331,6 @@ with tabs[5]:
         n_fmt = wb.add_format({'num_format':'#,##0', 'border':1})
         p_fmt = wb.add_format({'num_format':'0.00%', 'border':1})
         
-        # 1. Master Dashboard
         ws1 = wb.add_worksheet('1. Master Dashboard')
         ws1.set_column('A:B', 35)
         ws1.write_row('A1', ['Metric (المؤشر)', 'Value (القيمة)'], h_fmt)
@@ -329,7 +342,6 @@ with tabs[5]:
         ws1.write('A7', 'ROI (%) | العائد على الاستثمار', l_fmt); ws1.write_formula('B7', '=IF(B6>0, B5/B6, 0)', p_fmt)
         ws1.write('A8', 'Payback Period (Yrs) | فترة الاسترداد', l_fmt); ws1.write_formula('B8', '=IF(B5>0, B6/B5, 0)', c_fmt)
         
-        # 2. CAPEX
         ws2 = wb.add_worksheet('2. CAPEX (الأصول)')
         ws2.set_column('A:B', 25); ws2.set_column('C:C', 20)
         ws2.write_row('A1', ['Category (الفئة)', 'Item (البند)', 'Cost (SAR)'], h_fmt)
@@ -344,7 +356,6 @@ with tabs[5]:
         ws2.write(len(cx_data)+1, 1, 'TOTAL CAPEX | الإجمالي', h_fmt)
         ws2.write_formula(len(cx_data)+1, 2, f'=SUM(C2:C{len(cx_data)+1})', h_fmt)
         
-        # 3. Working Capital
         ws3 = wb.add_worksheet('3. Working Capital')
         ws3.set_column('A:A', 35); ws3.set_column('B:D', 22)
         ws3.write_row('A1', ['Item (البند)', 'Monthly Cost (شهري)', 'Months (تغطية)', 'Total Required (التمويل)'], h_fmt)
@@ -362,7 +373,6 @@ with tabs[5]:
         ws3.write(len(wc_data)+1, 0, 'TOTAL WORKING CAPITAL', h_fmt)
         ws3.write_formula(len(wc_data)+1, 3, f'=SUM(D2:D{len(wc_data)+1})', h_fmt)
         
-        # 4. Mix Details
         df_dets.to_excel(w, index=False, sheet_name='4. Product Mix')
         
     st.download_button("📥 Download Advanced Interactive Excel", buf.getvalue(), "NexFlexo_Pro.xlsx", "application/vnd.ms-excel", use_container_width=True)
