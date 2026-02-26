@@ -53,28 +53,7 @@ with tabs[0]:
 # ==========================================
 # 2. Production & OEE (Machines Capacity)
 # ==========================================
-with tabs[1]:
-    st.header("Production Capacity & OEE")
-    
-    # Working Schedule
-    col_w1, col_w2 = st.columns(2)
-    with col_w1:
-        st.subheader("Working Schedule")
-        work_days = st.number_input("Working Days/Year", 300)
-        shifts_day = st.number_input("Shifts/Day", 2)
-        hrs_shift = st.number_input("Hours/Shift", 12)
-        total_avail_hrs = work_days * shifts_day * hrs_shift
-    with col_w2:
-        st.subheader("Changeovers (Downtime)")
-        jobs_month = st.number_input("Jobs/Month", 60)
-        hrs_per_changeover = st.number_input("Hours/Changeover", 1.0)
-        total_downtime = (jobs_month * 12) * hrs_per_changeover
-        net_running_hrs = total_avail_hrs - total_downtime
-
-    st.success(f"Available: {total_avail_hrs} Hrs | Downtime: {total_downtime} Hrs | Net Running: {net_running_hrs} Hrs")
-    st.markdown("---")
-    
-    # Individual Machine Capacities
+# Individual Machine Capacities
     st.header("Machines Speeds & Output (Area)")
     m1, m2, m3 = st.columns(3)
     
@@ -82,34 +61,37 @@ with tabs[1]:
         st.subheader("1. Flexo CI")
         f_speed = st.number_input("Flexo Speed (m/min)", 300)
         f_width = st.number_input("Flexo Web Width (m)", 1.0)
+        f_eff = st.slider("Flexo Efficiency %", 40, 100, 70) # نسبة الكفاءة الواقعية
         f_price = st.number_input("Flexo Price (SAR)", 8000000)
         
-        f_lin_m = net_running_hrs * 60 * f_speed
+        # المعادلة الواقعية (السرعة × الساعات × الكفاءة)
+        f_lin_m = net_running_hrs * 60 * f_speed * (f_eff / 100)
         f_sq_m = f_lin_m * f_width
-        st.info(f"📏 Linear: {f_lin_m:,.0f} m\n\n🔲 Area: {f_sq_m:,.0f} Sq.m")
+        st.info(f"📏 Annual Linear: {f_lin_m:,.0f} m\n📉 Monthly Avg: {(f_lin_m/12):,.0f} m\n\n🔲 Annual Area: {f_sq_m:,.0f} Sq.m")
 
     with m2:
         st.subheader("2. Lamination")
         l_speed = st.number_input("Lam Speed (m/min)", 250)
         l_width = st.number_input("Lam Web Width (m)", 1.0)
+        l_eff = st.slider("Lam Efficiency %", 40, 100, 75)
         l_price = st.number_input("Lam Price (SAR)", 1200000)
         
-        l_lin_m = net_running_hrs * 60 * l_speed
+        l_lin_m = net_running_hrs * 60 * l_speed * (l_eff / 100)
         l_sq_m = l_lin_m * l_width
-        st.info(f"📏 Linear: {l_lin_m:,.0f} m\n\n🔲 Area: {l_sq_m:,.0f} Sq.m")
+        st.info(f"📏 Annual Linear: {l_lin_m:,.0f} m\n📉 Monthly Avg: {(l_lin_m/12):,.0f} m\n\n🔲 Annual Area: {l_sq_m:,.0f} Sq.m")
 
     with m3:
         st.subheader("3. Slitter")
         s_speed = st.number_input("Slitter Speed (m/min)", 400)
         s_width = st.number_input("Slitter Web Width (m)", 1.0)
+        s_eff = st.slider("Slitter Efficiency %", 40, 100, 80)
         s_price = st.number_input("Slitter Price (SAR)", 800000)
         
-        s_lin_m = net_running_hrs * 60 * s_speed
+        s_lin_m = net_running_hrs * 60 * s_speed * (s_eff / 100)
         s_sq_m = s_lin_m * s_width
-        st.info(f"📏 Linear: {s_lin_m:,.0f} m\n\n🔲 Area: {s_sq_m:,.0f} Sq.m")
+        st.info(f"📏 Annual Linear: {s_lin_m:,.0f} m\n📉 Monthly Avg: {(s_lin_m/12):,.0f} m\n\n🔲 Annual Area: {s_sq_m:,.0f} Sq.m")
 
-    total_capex = f_price + l_price + s_price + 500000 
-
+    total_capex = f_price + l_price + s_price + 500000
 # ==========================================
 # 3. Consumables
 # ==========================================
