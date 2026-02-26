@@ -53,7 +53,7 @@ with tabs[1]:
     ann_dep = t_capex / dep_y if dep_y > 0 else 0
     t_pwr = f_pc + l_pc + s_pc
 
-# --- TAB 3 (UPDATED CONSUMABLES) ---
+# --- TAB 3 ---
 with tabs[2]:
     cc1, cc2, cc3 = st.columns(3)
     an_pr = cc1.number_input("Anilox SAR/Col", 15000.0)
@@ -67,22 +67,33 @@ with tabs[2]:
     tp_pr = cc3.number_input("Mount Tape SAR/m²", 85.0)
     tp_qt = cc3.number_input("Tape m²/Job", 6.0)
 
-# --- TAB 4 ---
+# --- TAB 4 (UPDATED WITH SAUDI STAFF) ---
 with tabs[3]:
+    st.header("HR & Admin (OPEX)")
+    
+    # الصف الأول للعمالة الأساسية
     ch1, ch2, ch3, ch4 = st.columns(4)
     eng_q, eng_s = ch1.number_input("Eng Qty", 3), ch1.number_input("Eng Sal", 8000)
     opr_q, opr_s = ch2.number_input("Op Qty", 6), ch2.number_input("Op Sal", 4500)
     wrk_q, wrk_s = ch3.number_input("Wrk Qty", 10), ch3.number_input("Wrk Sal", 2500)
     adm_q, adm_s = ch4.number_input("Adm Qty", 5), ch4.number_input("Adm Sal", 8000)
     
-    payroll = (eng_q*eng_s) + (opr_q*opr_s) + (wrk_q*wrk_s) + (adm_q*adm_s)
+    # الصف الثاني للعمالة السعودية
+    st.markdown("#### Saudization / Local Staff")
+    cs1, cs2 = st.columns(2)
+    saudi_q = cs1.number_input("Saudi Staff Qty", 5)
+    saudi_s = cs2.number_input("Saudi Staff Sal", 4000)
+    
+    # حساب الإجمالي مع الموظفين السعوديين
+    payroll = (eng_q*eng_s) + (opr_q*opr_s) + (wrk_q*wrk_s) + (adm_q*adm_s) + (saudi_q*saudi_s)
+    
     st.markdown("---")
     cp1, cp2, cp3 = st.columns(3)
     adm_exp = cp1.number_input("Monthly Admin Exp", 40000)
     cp2.metric("Total Monthly Payroll", f"SAR {payroll:,.0f}")
     cp3.metric("Annual Power Cost", f"SAR {t_pwr:,.0f}")
 
-# --- TAB 5 ---
+# --- TAB 5 (ERROR FIXED) ---
 with tabs[4]:
     c_c1, c_c2, c_c3 = st.columns(3)
     w_ink, i_loss, a_gsm = c_c1.number_input("Wet Ink", 5.0), c_c2.number_input("Ink Loss%", 40.0), c_c3.number_input("Adh GSM", 1.8)
@@ -137,17 +148,32 @@ with tabs[4]:
     if m_nd: st.dataframe(pd.DataFrame([{"Material": k, "Meters": f"{v:,.0f}"} for k, v in m_nd.items()]), use_container_width=True)
     
     ck1, ck2, ck3 = st.columns(3)
-    ck1.metric("Ink Kg/Mo", f"{t_ink_k/12:,.0f}"); ck2.metric("Solv Kg/Mo", f"{t_slv_k/12:,.0f}"); ck3.metric("Adh Kg/Mo", f"{t_adh_k/12:,.0f}")
+    ck1.metric("Ink Kg/Mo", f"{t_ink_k/12:,.0f}")
+    ck2.metric("Solv Kg/Mo", f"{t_slv_k/12:,.0f}")
+    ck3.metric("Adh Kg/Mo", f"{t_adh_k/12:,.0f}")
     
     fx_max, sl_max = (f_sq * w_gsm)/1000000, (s_sq * w_gsm)/1000000
     lm_max = (l_sq * w_gsm)/1000000/l_mix if l_mix > 0 else 999999
     
     cb1, cb2, cb3 = st.columns(3)
-    cb1.success(f"Flexo Max: {fx_max:,.0f} T") if t_tons <= fx_max else cb1.error(f"Flexo Max: {fx_max:,.0f} T")
-    cb2.success(f"Lam Max: {lm_max:,.0f} T") if t_tons <= lm_max else cb2.error(f"Lam Max: {lm_max:,.0f} T")
-    cb3.success(f"Slit Max: {sl_max:,.0f} T") if t_tons <= sl_max else cb3.error(f"Slit Max: {sl_max:,.0f} T")
+    
+    # تم تصحيح طريقة كتابة الشروط هنا لكي لا تظهر نصوص غريبة
+    if t_tons <= fx_max:
+        cb1.success(f"Flexo Max: {fx_max:,.0f} T")
+    else:
+        cb1.error(f"Flexo Max: {fx_max:,.0f} T")
+        
+    if t_tons <= lm_max:
+        cb2.success(f"Lam Max: {lm_max:,.0f} T")
+    else:
+        cb2.error(f"Lam Max: {lm_max:,.0f} T")
+        
+    if t_tons <= sl_max:
+        cb3.success(f"Slit Max: {sl_max:,.0f} T")
+    else:
+        cb3.error(f"Slit Max: {sl_max:,.0f} T")
 
-# --- TAB 6 & 7 (UPDATED CALCULATIONS) ---
+# --- TAB 6 & 7 ---
 tot_rev = t_tons * 1000 * w_sp
 a_rm = t_tons * 1000 * w_rmc
 esm = t_tons * (1000/w_gsm) * 1000 if w_gsm > 0 else 0
@@ -190,4 +216,4 @@ with tabs[6]:
     sg = next((i["GSM"] for i in dets if i["Product"] == sr), 0)
     mp = cq1.number_input("Margin %", 5, 100, 20)
     if st.button("Generate Offer"):
-        st.info(f"**To:** {cn}\n\n**Product:** {sr} ({sg} g/m²)\n\n**Price/Kg:** SAR {sc * (1 + mp/100):.2f}\n\n*Waheed Waleed Malik, NexFlexo*")
+        st.info(f"**To:**
