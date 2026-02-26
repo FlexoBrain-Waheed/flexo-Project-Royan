@@ -66,12 +66,11 @@ with tabs[1]:
         web_width = st.number_input("Avg Web Width (meter)", value=1.0)
         avg_gsm = st.number_input("Avg Structure Weight (GSM)", value=60)
         
-    # Capacity Math
     annual_linear_meters = net_running_hrs * 60 * flexo_speed
     annual_sqm = annual_linear_meters * web_width
     annual_tons_capacity = (annual_sqm * avg_gsm) / 1000000
 
-    st.success(f"Available: {total_avail_hrs} Hrs | Downtime: {total_downtime} Hrs | Net Running: {net_running_hrs} Hrs")
+    st.success(f"Total Available: {total_avail_hrs} Hrs | Total Downtime: {total_downtime} Hrs | Net Running: {net_running_hrs} Hrs")
     st.info(f"Max Production Capacity: {annual_tons_capacity:,.0f} Tons/Year")
     
     st.markdown("---")
@@ -129,4 +128,86 @@ with tabs[4]:
     st.header("Sales Mix & Revenue")
     
     client_data = [
-        {"Structure": "
+        {"Structure": "1 Layer", "Mix %": 60, "Price/Kg": 12.0},
+        {"Structure": "2 Layers", "Mix %": 30, "Price/Kg": 13.0},
+        {"Structure": "3 Layers", "Mix %": 10, "Price/Kg": 15.0}
+    ]
+    df_mix = st.data_editor(pd.DataFrame(client_data), use_container_width=True)
+    
+    target_sales_tons = st.number_input("Target Annual Sales (Tons)", value=1200)
+    
+    if target_sales_tons > annual_tons_capacity:
+        st.error(f"Warning: Sales Target ({target_sales_tons} T) exceeds Machine Capacity ({annual_tons_capacity:,.0f} T)!")
+        
+    weighted_avg_price = sum((row["Mix %"] / 100) * row["Price/Kg"] for index, row in df_mix.iterrows()) * 1000
+    total_revenue = target_sales_tons * weighted_avg_price
+
+# ==========================================
+# 6. P&L Dashboard & Excel
+# ==========================================
+with tabs[5]:
+    st.header("P&L Dashboard")
+    
+    annual_raw_mat = target_sales_tons * avg_raw_mat_cost_ton
+    est_annual_meters = target_sales_tons * (1000 / avg_gsm) * 1000 if avg_gsm > 0 else 0 
+    
+    annual_anilox = (est_annual_meters / (anilox_life * 1000000)) * anilox_price * 8 if anilox_life > 0 else 0
+    annual_blade = (est_annual_meters / (blade_life * 1000)) * blade_price * 8 if blade_life > 0 else 0
+    annual_endseals = (net_running_hrs / endseal_life) * endseal_price * 8 if endseal_life > 0 else 0
+    
+    annual_consumables = annual_anilox + annual_blade + annual_endseals + (target_sales_tons * 200)
+    annual_hr_admin = (monthly_payroll + admin_expenses) * 12
+    
+    total_cogs_opex = annual_raw_mat + annual_consumables + annual_hr_admin + power_cost_annual
+    net_profit = total_revenue - total_cogs_opex
+    payback = total_capex / net_profit if net_profit > 0 else 0
+
+    col_res1, col_res2, col_res3, col_res4 = st.columns(4)
+    col_res1.metric("Revenue (SAR)", f"{total_revenue:,.0f}")
+    col_res2.metric("Total OPEX (SAR)", f"{total_cogs_opex:,.0f}")
+    col_res3.metric("Net Profit (SAR)", f"{net_profit:,.0f}")
+    col_res4.metric("Payback (Years)", f"{payback:.1f}")
+    
+    cost_data = pd.DataFrame({
+        "Item": ["Raw Material", "Consumables", "HR & Admin", "Power"],
+        "Value": [annual_raw_mat, annual_consumables, annual_hr_admin, power_cost_annual]
+    })
+    fig = px.pie(cost_data, values="Value", names="Item", title="OPEX Breakdown", hole=0.4)
+    st.plotly_chart(fig, use_container_width=True)
+
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+        workbook = writer.book
+        ws = workbook.add_worksheet('P&L')
+        
+        fmt_head = workbook.add_format({'bold': True, 'bg_color': '#1F4E78', 'font_color': 'white', 'border': 1})
+        fmt_money = workbook.add_format({'num_format': '#,##0', 'border': 1})
+        
+        ws.write('A1', 'Item', fmt_head)
+        ws.write('B1', 'Amount (SAR)', fmt_head)
+        
+        data_to_excel = [
+            ("Total Revenue", total_revenue),
+            ("Raw Materials Cost", annual_raw_mat),
+            ("Consumables (Anilox, Blades, Seals)", annual_consumables),
+            ("Payroll (HR)", monthly_payroll * 12),
+            ("Admin & Rent", admin_expenses * 12),
+            ("Power Cost", power_cost_annual),
+            ("Net Profit", net_profit),
+            ("Total CAPEX", total_capex)
+        ]
+        
+        for row_num, (item, val) in enumerate(data_to_excel, start=1):
+            ws.write(row_num, 0, item, fmt_money)
+            ws.write(row_num, 1, val, fmt_money)
+            
+        ws.set_column('A:A', 35)
+        ws.set_column('B:B', 20)
+
+    st.download_button(
+        label="📥 Download P&L (Excel)",
+        data=buffer.getvalue(),
+        file_name="Flexo_Plant_PNL.xlsx",
+        mime="application/vnd.ms-excel",
+        use_container_width=True
+    )
