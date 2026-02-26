@@ -8,7 +8,8 @@ tabs = st.tabs(["1. Materials", "2. Production", "3. Consumables", "4. HR & OPEX
 with tabs[0]:
     c1, c2, c3, c4 = st.columns(4)
     p_b, d_b = c1.number_input("BOPP SAR", 6.0), c1.number_input("BOPP Den", 0.91)
-    p_pt, d_pt = c2.number_input("PET SAR", 5.5), c2.number_input("PET Den", 1.40)
+    # تم تعديل سعر PET هنا إلى 6.3 بناءً على صورتك
+    p_pt, d_pt = c2.number_input("PET SAR", 6.3), c2.number_input("PET Den", 1.40)
     p_pe, d_pe = c3.number_input("PE SAR", 5.0), c3.number_input("PE Den", 0.92)
     p_al, d_al = c4.number_input("ALU SAR", 18.0), c4.number_input("ALU Den", 2.70)
     mat_db = {"BOPP":{"p":p_b,"d":d_b}, "PET":{"p":p_pt,"d":d_pt}, "PE":{"p":p_pe,"d":d_pe}, "ALU":{"p":p_al,"d":d_al}, "None":{"p":0.0,"d":0.0}}
@@ -115,61 +116,4 @@ with tabs[4]:
         mr = r["Mix%"] / 100.0
         w_gsm += tg * mr
         w_rmc += cpk * mr
-        w_sp += r["Price"] * mr
-        if lp > 0: l_mix += mr
-            
-        dets.append({"Product":r["Product"], "Tons":r_ton, "Length(m)":round(l_len,0), "GSM":round(tg,1), "Cost/Kg":round(cpk,2), "Margin":round(r["Price"]-cpk,2)})
-        
-    st.dataframe(pd.DataFrame(dets), use_container_width=True)
-    if m_nd: st.dataframe(pd.DataFrame([{"Material": k, "Meters": f"{v:,.0f}"} for k, v in m_nd.items()]), use_container_width=True)
-    
-    ck1, ck2, ck3 = st.columns(3)
-    ck1.metric("Ink Kg/Mo", f"{t_ink_k/12:,.0f}"); ck2.metric("Solv Kg/Mo", f"{t_slv_k/12:,.0f}"); ck3.metric("Adh Kg/Mo", f"{t_adh_k/12:,.0f}")
-    
-    fx_max, sl_max = (f_sq * w_gsm)/1000000, (s_sq * w_gsm)/1000000
-    lm_max = (l_sq * w_gsm)/1000000/l_mix if l_mix > 0 else 999999
-    
-    cb1, cb2, cb3 = st.columns(3)
-    cb1.success(f"Flexo Max: {fx_max:,.0f} T") if t_tons <= fx_max else cb1.error(f"Flexo Max: {fx_max:,.0f} T")
-    cb2.success(f"Lam Max: {lm_max:,.0f} T") if t_tons <= lm_max else cb2.error(f"Lam Max: {lm_max:,.0f} T")
-    cb3.success(f"Slit Max: {sl_max:,.0f} T") if t_tons <= sl_max else cb3.error(f"Slit Max: {sl_max:,.0f} T")
-
-# --- TAB 6 & 7 ---
-tot_rev = t_tons * 1000 * w_sp
-a_rm = t_tons * 1000 * w_rmc
-esm = t_tons * (1000/w_gsm) * 1000 if w_gsm > 0 else 0
-a_cons = (esm/(an_lf*1000000)*an_pr*8 if an_lf>0 else 0) + (esm/(bl_lf*1000)*bl_pr*8 if bl_lf>0 else 0) + (net_hrs/es_lf*es_pr*8 if es_lf>0 else 0)
-a_hr = (payroll + adm_exp) * 12
-
-t_opex = a_rm + a_cons + a_hr + t_pwr + ann_dep
-n_prof = tot_rev - t_opex
-pbk = t_capex / n_prof if n_prof > 0 else 0
-atr = tot_rev / t_capex if t_capex > 0 else 0
-roi = (n_prof / t_capex) * 100 if t_capex > 0 else 0
-
-with tabs[5]:
-    cr1, cr2, cr3, cr4 = st.columns(4)
-    cr1.metric("Rev", f"{tot_rev:,.0f}"); cr2.metric("Total Cost", f"{t_opex:,.0f}"); cr3.metric("Profit", f"{n_prof:,.0f}"); cr4.metric("Payback", f"{pbk:.1f}y")
-    st.info(f"Includes Annual Depr. SAR {ann_dep:,.0f}")
-    
-    buf = io.BytesIO()
-    with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
-        pd.DataFrame({"Metric":["CAPEX","Tons","Rev","Cost","Profit","ROI%","Payback"], "Val":[t_capex,t_tons,tot_rev,t_opex,n_prof,f"{roi:.1f}%",pbk]}).to_excel(w, index=False, sheet_name='Exec')
-        pd.DataFrame({"Metric":["Hrs","Tons","Fx Max","Lm Max","Sl Max"], "Val":[net_hrs,t_tons,fx_max,lm_max,sl_max]}).to_excel(w, index=False, sheet_name='Ops')
-        pd.DataFrame(dets).to_excel(w, index=False, sheet_name='Mix')
-        pd.DataFrame({"Item":["Mats","Cons","HR","Admin","Pwr","Depr"], "SAR":[a_rm,a_cons,payroll*12,adm_exp*12,t_pwr,ann_dep]}).to_excel(w, index=False, sheet_name='Costs')
-        pd.DataFrame({"Chem":["Ink","Solv","Adh"], "Mo Kg":[t_ink_k/12,t_slv_k/12,t_adh_k/12]}).to_excel(w, index=False, sheet_name='Chem')
-    st.download_button("📥 Excel Report", buf.getvalue(), "NexFlexo.xlsx", "application/vnd.ms-excel", use_container_width=True)
-
-with tabs[6]:
-    ct1, ct2, ct3 = st.columns(3)
-    ct1.metric("Turnover", f"SAR {tot_rev:,.0f}"); ct2.metric("Asset Turn", f"{atr:.2f}x"); ct3.metric("ROI", f"{roi:.1f}%")
-    st.markdown("---")
-    cq1, cq2 = st.columns(2)
-    cn = cq1.text_input("Customer", "Valued Client")
-    sr = cq2.selectbox("Product", [i["Product"] for i in dets])
-    sc = next((i["Cost/Kg"] for i in dets if i["Product"] == sr), 0)
-    sg = next((i["GSM"] for i in dets if i["Product"] == sr), 0)
-    mp = cq1.number_input("Margin %", 5, 100, 20)
-    if st.button("Generate Offer"):
-        st.info(f"**To:** {cn}\n\n**Product:** {sr} ({sg} g/m²)\n\n**Price/Kg:** SAR {sc * (1 + mp/100):.2f}\n\n*Waheed Waleed Malik, NexFlexo*")
+        w
