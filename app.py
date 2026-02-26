@@ -9,7 +9,7 @@ st.markdown("---")
 
 tabs = st.tabs([
     "1. Raw Materials", "2. Production (OEE)", "3. Consumables", 
-    "4. HR & OPEX", "5. Recipes", "6. P&L", "7. Commercial"
+    "4. HR & OPEX", "5. Recipes", "6. P&L Dashboard", "7. Commercial"
 ])
 
 # --- TAB 1 ---
@@ -190,7 +190,7 @@ with tabs[4]:
             "Structure": row["Structure"], "Target (Tons)": recipe_tons,
             "Base GSM": round(base_mat_gsm, 1), "Glue GSM": round(adh_gsm, 1),
             "Dry Ink GSM": round(dry_ink_gsm, 1), "Final GSM": round(total_gsm, 1),
-            "Cost (SAR/Kg)": round(cost_per_kg, 2)
+            "Cost (SAR/Kg)": round(cost_per_kg, 2), "Margin (SAR/Kg)": round(row["Sell_Price"] - cost_per_kg, 2)
         })
 
     st.markdown("### 📊 Production Breakdown")
@@ -203,6 +203,21 @@ with tabs[4]:
     col_chem1.metric("🎨 Wet Ink (Kg/Month)", f"{total_annual_ink_kg / 12:,.0f} Kg")
     col_chem2.metric("🧪 Solvent (Kg/Month)", f"{total_annual_solv_kg / 12:,.0f} Kg")
     col_chem3.metric("🍯 Adhesive (Kg/Month)", f"{total_annual_adh_kg / 12:,.0f} Kg")
+
+    st.markdown("---")
+    st.subheader("🚦 Line Balancing & Bottleneck Check")
+    flexo_max_tons = (f_sq_m * weighted_avg_gsm) / 1000000
+    slit_max_tons = (s_sq_m * weighted_avg_gsm) / 1000000
+    lam_max_tons = (l_sq_m * weighted_avg_gsm) / 1000000 / lamination_mix_ratio if lamination_mix_ratio > 0 else 9999999 
+
+    cb1, cb2, cb3 = st.columns(3)
+    def render_capacity(col, name, max_tons, target):
+        if target > max_tons: col.error(f"❌ **{name}**\n\nMax: {max_tons:,.0f} T")
+        else: col.success(f"✅ **{name}**\n\nMax: {max_tons:,.0f} T")
+
+    render_capacity(cb1, "Flexo", flexo_max_tons, target_sales_tons)
+    render_capacity(cb2, "Lamination", lam_max_tons, target_sales_tons)
+    render_capacity(cb3, "Slitter", slit_max_tons, target_sales_tons)
 
 # --- TAB 6 & 7 (Finance & Quotation) ---
 annual_raw_mat = target_sales_tons * 1000 * weighted_avg_rm_cost
@@ -217,25 +232,68 @@ total_cogs_opex = annual_raw_mat + annual_consumables + annual_hr_admin + power_
 net_profit = total_revenue - total_cogs_opex
 payback = total_capex / net_profit if net_profit > 0 else 0
 
+asset_turnover = total_revenue / total_capex if total_capex > 0 else 0
+roi = (net_profit / total_capex) * 100 if total_capex > 0 else 0
+
 with tabs[5]:
-    st.header("P&L Dashboard")
+    st.header("P&L Dashboard & Official Report")
     col_res1, col_res2, col_res3, col_res4 = st.columns(4)
     col_res1.metric("Revenue (SAR)", f"{total_revenue:,.0f}")
     col_res2.metric("Total OPEX (SAR)", f"{total_cogs_opex:,.0f}")
     col_res3.metric("Net Profit (SAR)", f"{net_profit:,.0f}")
     col_res4.metric("Payback (Years)", f"{payback:.1f}")
     
+    # ==========================================
+    # SUPER EXCEL GENERATOR (Feasibility Study)
+    # ==========================================
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-        pd.DataFrame({
-            "Item": ["Total Revenue", "Materials", "Consumables", "Payroll (HR)", "Admin", "Power", "Net Profit", "CAPEX"],
-            "Amount (SAR)": [total_revenue, annual_raw_mat, annual_consumables, monthly_payroll * 12, admin_expenses * 12, power_cost_annual, net_profit, total_capex]
-        }).to_excel(writer, index=False, sheet_name='PNL')
+        
+        # 1. Executive Summary
+        df_exec = pd.DataFrame({
+            "Key Financial Indicators": ["Total CAPEX (Investment)", "Annual Target Sales (Tons)", "Annual Revenue", "Total OPEX", "Net Profit", "ROI (%)", "Payback Period (Years)", "Asset Turnover Ratio"],
+            "Value": [total_capex, target_sales_tons, total_revenue, total_cogs_opex, net_profit, f"{roi:.1f}%", round(payback, 2), round(asset_turnover, 2)]
+        })
+        df_exec.to_excel(writer, sheet_name='1. Executive Summary', index=False)
+        
+        # 2. Operations
+        df_ops = pd.DataFrame({
+            "Operational Metrics": ["Net Running Hours / Year", "Target Tons", "Flexo Max Capacity (Tons)", "Lam Max Capacity (Tons)", "Slitter Max Capacity (Tons)"],
+            "Value": [net_running_hrs, target_sales_tons, flexo_max_tons, lam_max_tons if lamination_mix_ratio > 0 else "No Lam Needed", slit_max_tons]
+        })
+        df_ops.to_excel(writer, sheet_name='2. Plant Operations', index=False)
+        
+        # 3. Product Portfolio
+        df_mix_export = pd.DataFrame(details)
+        df_mix_export.to_excel(writer, sheet_name='3. Product Portfolio', index=False)
+        
+        # 4. OPEX Breakdown
+        df_opex = pd.DataFrame({
+            "Expense Category": ["Materials (Films, Ink, Glue, Solvent)", "Consumables (Anilox, Blades, Seals)", "Payroll (HR)", "Admin & Rent", "Power Cost"],
+            "Annual Amount (SAR)": [annual_raw_mat, annual_consumables, monthly_payroll * 12, admin_expenses * 12, power_cost_annual]
+        })
+        df_opex.to_excel(writer, sheet_name='4. OPEX Breakdown', index=False)
+        
+        # 5. Chemicals Consumption
+        df_chem = pd.DataFrame({
+            "Chemical": ["Wet Ink", "Solvent", "Adhesive"],
+            "Monthly (Kg)": [round(total_annual_ink_kg/12, 1), round(total_annual_solv_kg/12, 1), round(total_annual_adh_kg/12, 1)],
+            "Annual (Kg)": [round(total_annual_ink_kg, 1), round(total_annual_solv_kg, 1), round(total_annual_adh_kg, 1)]
+        })
+        df_chem.to_excel(writer, sheet_name='5. Chemicals', index=False)
 
+        # Formatting Excel nicely
+        for sheet_name in writer.sheets:
+            worksheet = writer.sheets[sheet_name]
+            worksheet.set_column('A:A', 40)
+            worksheet.set_column('B:I', 20)
+
+    st.markdown("---")
+    st.info("💡 Download the **Comprehensive Feasibility Report** in Excel. It includes 5 detailed sheets covering Executives, Operations, Products, Costs, and Chemicals.")
     st.download_button(
-        label="📥 Download P&L (Excel)", 
+        label="📥 Download Full Feasibility Report (Excel)", 
         data=buffer.getvalue(), 
-        file_name="NexFlexo_Plant_PNL.xlsx", 
+        file_name="NexFlexo_Feasibility_Report.xlsx", 
         mime="application/vnd.ms-excel", 
         use_container_width=True
     )
@@ -244,9 +302,6 @@ with tabs[6]:
     st.header("Commercial & Turnover")
     
     st.subheader("🔄 1. Financial Turnover Metrics")
-    asset_turnover = total_revenue / total_capex if total_capex > 0 else 0
-    roi = (net_profit / total_capex) * 100 if total_capex > 0 else 0
-    
     c_t1, c_t2, c_t3 = st.columns(3)
     c_t1.metric("Annual Turnover", f"SAR {total_revenue:,.0f}")
     c_t2.metric("Asset Turnover Ratio", f"{asset_turnover:.2f}x")
@@ -258,7 +313,7 @@ with tabs[6]:
     col_q1, col_q2 = st.columns(2)
     client_name = col_q1.text_input("Customer Name", "Valued Client")
     
-    recipe_names = df_recipes["Structure"].tolist()
+    recipe_names = [item["Structure"] for item in details]
     selected_recipe = col_q2.selectbox("Select Product for Quotation", recipe_names)
     
     selected_cost = 0
@@ -266,7 +321,7 @@ with tabs[6]:
     for item in details:
         if item["Structure"] == selected_recipe:
             selected_cost = item["Cost (SAR/Kg)"]
-            selected_gsm = item["Final GSM"]
+            selected_gsm = item["Final Total GSM"] if "Final Total GSM" in item else item.get("Final GSM", 0)
             break
             
     margin_pct = col_q1.number_input("Desired Profit Margin (%)", 5, 100, 20)
