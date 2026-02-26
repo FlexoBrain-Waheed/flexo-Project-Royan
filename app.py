@@ -23,12 +23,9 @@ with tabs[1]:
     d_yr = cw1.number_input("Days/Yr", 300)
     s_day = cw1.number_input("Shifts/Day", 2)
     h_sh = cw1.number_input("Hrs/Shift", 12)
-    
-    # تم تعديل التوقفات (الطلبيات) إلى 75 هنا
     j_mo = cw2.number_input("Jobs/Mo", 75)
     c_hrs = cw2.number_input("C.O. Hrs", 2.0)
     kw_p = cw3.number_input("SAR/kWh", 0.18)
-    
     net_hrs = (d_yr * s_day * h_sh) - (j_mo * 12 * c_hrs)
     st.success(f"✅ Net Running Hours / Year: {net_hrs:,.0f}")
     
@@ -88,9 +85,7 @@ with tabs[1]:
     st.markdown("---")
     st.subheader("📊 Machines Capacity Check (Tons/Year)")
     est_gsm = st.number_input("Estimated Total Avg GSM for Chart", 40.0)
-    
     est_flexo_gsm = est_gsm * 0.45 
-    
     df_chart = pd.DataFrame({
         "Machine": ["1. Extruder", "2. Flexo", "3. Lamination", "4. Slitter", "5. Bag Making"],
         "Max Tons / Year": [e_tons, (f_sq*est_flexo_gsm)/1000000, (l_sq*est_gsm)/1000000, (s_sq*est_gsm)/1000000, (b_sq*est_gsm)/1000000]
@@ -150,7 +145,6 @@ with tabs[4]:
     w_ink = c_set3.number_input("🎨 Wet Ink", 5.0)
     i_loss = c_set4.number_input("💧 Ink Loss%", 40.0)
     a_gsm = c_set5.number_input("🍯 Adh GSM", 1.8)
-    
     d_ink = w_ink * (1.0 - (i_loss / 100.0))
     
     st.markdown("### 📋 2. Product Portfolio (Recipes)")
@@ -171,16 +165,13 @@ with tabs[4]:
         g1 = r["M1"] * mat_db[r["L1"]]["d"]
         g2 = r["M2"] * mat_db[r["L2"]]["d"]
         g3 = r["M3"] * mat_db[r["L3"]]["d"]
-        
         flexo_g = g1 + d_ink 
-        
         lp = 0
         if r["M2"] > 0: lp += 1
         if r["M3"] > 0: lp += 1
         
         ag = lp * a_gsm
         tg = g1 + g2 + g3 + d_ink + ag
-        
         c1 = (g1/1000.0) * mat_db[r["L1"]]["p"]
         c2 = (g2/1000.0) * mat_db[r["L2"]]["p"]
         c3 = (g3/1000.0) * mat_db[r["L3"]]["p"]
@@ -194,8 +185,7 @@ with tabs[4]:
         
         if tg > 0:
             sq = (r_ton * 1000000.0) / tg
-            if std_w > 0: 
-                l_len = sq / std_w
+            if std_w > 0: l_len = sq / std_w
             t_ink_k += (sq * w_ink) / 1000.0
             t_slv_k += (sq * w_ink * 0.5) / 1000.0
             t_adh_k += (sq * ag) / 1000.0
@@ -221,7 +211,6 @@ with tabs[4]:
     st.markdown("### 📊 3. Production Breakdown & Margins")
     df_dets = pd.DataFrame(dets)
     col_t1, col_t2 = st.columns([6, 4])
-    
     with col_t1:
         st.dataframe(df_dets[["Product", "Tons", "Length(m)", "GSM", "Flexo GSM", "Cost/Kg", "Margin"]].style.format({"Tons": "{:,.1f}", "Length(m)": "{:,.0f}", "GSM": "{:,.1f}", "Flexo GSM": "{:,.1f}", "Cost/Kg": "{:,.2f}", "Margin": "{:,.2f}"}), use_container_width=True)
     with col_t2:
@@ -239,7 +228,6 @@ with tabs[4]:
     ck3.metric("🍯 Adh Kg/Mo", f"{t_adh_k/12:,.0f}")
     
     fx_max = (f_sq * w_flexo_gsm) / 1000000.0 
-    
     sl_max = (s_sq * w_gsm) / 1000000.0
     bg_max = (b_sq * w_gsm) / 1000000.0
     lm_max = (l_sq * w_gsm) / 1000000.0 / l_mix if l_mix > 0 else 999999.0
@@ -248,20 +236,16 @@ with tabs[4]:
     cb1, cb2, cb3, cb4, cb5 = st.columns(5)
     if t_tons <= e_tons: cb1.success(f"Ext: {e_tons:,.0f} T")
     else: cb1.error(f"Ext: {e_tons:,.0f} T")
-        
     if t_tons <= fx_max: cb2.success(f"Flx: {fx_max:,.0f} T | {f_lm/1000000:,.1f}M m")
     else: cb2.error(f"Flx: {fx_max:,.0f} T | {f_lm/1000000:,.1f}M m")
-        
     if t_tons <= lm_max: cb3.success(f"Lam: {lm_max:,.0f} T | {l_lm/1000000:,.1f}M m")
     else: cb3.error(f"Lam: {lm_max:,.0f} T | {l_lm/1000000:,.1f}M m")
-        
     if t_tons <= sl_max: cb4.success(f"Slt: {sl_max:,.0f} T | {s_lm/1000000:,.1f}M m")
     else: cb4.error(f"Slt: {sl_max:,.0f} T | {s_lm/1000000:,.1f}M m")
-        
     if t_tons <= bg_max: cb5.success(f"Bag: {bg_max:,.0f} T | {b_lm/1000000:,.1f}M m")
     else: cb5.error(f"Bag: {bg_max:,.0f} T | {b_lm/1000000:,.1f}M m")
 
-# --- TAB 6 & 7 ---
+# --- TAB 6 & 7 (EXCEL FORMULAS INTEGRATION) ---
 tot_rev = t_tons * 1000.0 * w_sp
 a_rm = t_tons * 1000.0 * w_rmc
 esm = t_tons * (1000.0/w_gsm) * 1000.0 if w_gsm > 0 else 0.0
@@ -292,19 +276,70 @@ with tabs[5]:
     fig_pie = px.pie(
         names=["Raw Materials", "Consumables", "HR & Admin", "Power", "Depreciation", "Net Profit"],
         values=[a_rm, a_cons, a_hr, t_pwr, ann_dep, n_prof if n_prof > 0 else 0],
-        title="📊 Revenue Breakdown & Cost Allocation (SAR)",
-        hole=0.4
+        title="📊 Revenue Breakdown & Cost Allocation (SAR)", hole=0.4
     )
     st.plotly_chart(fig_pie, use_container_width=True)
     
+    # ---------------------------------------------------------
+    # 🪄 محرك الإكسيل المتقدم (معادلات + تنسيقات + رأس مال عامل)
+    # ---------------------------------------------------------
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
-        pd.DataFrame({"Metric":["CAPEX","Tons","Rev","Cost","Profit","ROI%","Payback"], "Val":[t_capex,t_tons,tot_rev,t_opex,n_prof,f"{roi:.1f}%",pbk]}).to_excel(w, index=False, sheet_name='Exec')
-        pd.DataFrame({"Metric":["Hrs","Tons","Ext Max","Fx Max","Lm Max","Sl Max","Bg Max"], "Val":[net_hrs,t_tons,e_tons,fx_max,lm_max,sl_max,bg_max]}).to_excel(w, index=False, sheet_name='Ops')
-        df_dets.to_excel(w, index=False, sheet_name='Mix')
-        pd.DataFrame({"Item":["Mats","Cons","HR","Admin","Pwr","Depr"], "SAR":[a_rm,a_cons,payroll*12.0,adm_exp*12.0,t_pwr,ann_dep]}).to_excel(w, index=False, sheet_name='Costs')
-        pd.DataFrame({"Chem":["Ink","Solv","Adh"], "Mo Kg":[t_ink_k/12.0,t_slv_k/12.0,t_adh_k/12.0]}).to_excel(w, index=False, sheet_name='Chem')
-    st.download_button("📥 Download Full Excel Report", buf.getvalue(), "NexFlexo.xlsx", "application/vnd.ms-excel", use_container_width=True)
+        wb = w.book
+        h_fmt = wb.add_format({'bold':True, 'bg_color':'#1F4E78', 'font_color':'white', 'border':1, 'align':'center'})
+        l_fmt = wb.add_format({'bold':True, 'border':1})
+        c_fmt = wb.add_format({'num_format':'#,##0.00', 'border':1})
+        n_fmt = wb.add_format({'num_format':'#,##0', 'border':1})
+        p_fmt = wb.add_format({'num_format':'0.00%', 'border':1})
+        
+        # 1. Master Dashboard
+        ws1 = wb.add_worksheet('1. Master Dashboard')
+        ws1.set_column('A:B', 35)
+        ws1.write_row('A1', ['Metric (المؤشر)', 'Value (القيمة)'], h_fmt)
+        ws1.write('A2', 'Target Production (Tons) | الإنتاج المستهدف', l_fmt); ws1.write_number('B2', t_tons, n_fmt)
+        ws1.write('A3', 'Gross Revenue (SAR) | إجمالي الإيرادات', l_fmt); ws1.write_number('B3', tot_rev, c_fmt)
+        ws1.write('A4', 'Total OPEX (SAR) | إجمالي تكاليف التشغيل', l_fmt); ws1.write_number('B4', t_opex, c_fmt)
+        ws1.write('A5', 'Net Profit (SAR) | صافي الربح', l_fmt); ws1.write_formula('B5', '=B3-B4', c_fmt)
+        ws1.write('A6', 'Total CAPEX (SAR) | إجمالي الاستثمار', l_fmt); ws1.write_number('B6', t_capex, c_fmt)
+        ws1.write('A7', 'ROI (%) | العائد على الاستثمار', l_fmt); ws1.write_formula('B7', '=IF(B6>0, B5/B6, 0)', p_fmt)
+        ws1.write('A8', 'Payback Period (Yrs) | فترة الاسترداد', l_fmt); ws1.write_formula('B8', '=IF(B5>0, B6/B5, 0)', c_fmt)
+        
+        # 2. CAPEX
+        ws2 = wb.add_worksheet('2. CAPEX (الأصول)')
+        ws2.set_column('A:B', 25); ws2.set_column('C:C', 20)
+        ws2.write_row('A1', ['Category (الفئة)', 'Item (البند)', 'Cost (SAR)'], h_fmt)
+        cx_data = [
+            ['Production Line', 'Extruder', e_pr], ['Production Line', 'Flexo CI', f_pr],
+            ['Production Line', 'Lamination', l_pr], ['Production Line', 'Slitter', s_pr],
+            ['Production Line', 'Bag Making', b_pr], ['Facilities', 'Building/Setup', 500000.0]
+        ]
+        for i, (c, it, v) in enumerate(cx_data, 1):
+            ws2.write(i, 0, c, l_fmt); ws2.write(i, 1, it, l_fmt); ws2.write_number(i, 2, v, c_fmt)
+        ws2.write(len(cx_data)+1, 1, 'TOTAL CAPEX | الإجمالي', h_fmt)
+        ws2.write_formula(len(cx_data)+1, 2, f'=SUM(C2:C{len(cx_data)+1})', h_fmt)
+        
+        # 3. Working Capital (رأس المال العامل)
+        ws3 = wb.add_worksheet('3. Working Capital')
+        ws3.set_column('A:A', 35); ws3.set_column('B:D', 22)
+        ws3.write_row('A1', ['Item (البند)', 'Monthly Cost (شهري)', 'Months (تغطية)', 'Total Required (التمويل)'], h_fmt)
+        wc_data = [
+            ['Raw Materials (مواد خام)', a_rm/12.0], 
+            ['Chemicals (أحبار وغراء)', (t_ink_k*ink_p + t_slv_k*solv_p + t_adh_k*adh_p)/12.0],
+            ['Power (الكهرباء)', t_pwr/12.0], 
+            ['Payroll & Admin (رواتب وإدارة)', payroll + adm_exp], 
+            ['Consumables (مستهلكات)', a_cons/12.0]
+        ]
+        for i, (it, v) in enumerate(wc_data, 1):
+            ws3.write(i, 0, it, l_fmt); ws3.write_number(i, 1, v, c_fmt)
+            ws3.write_number(i, 2, 3, n_fmt) # 3 months coverage default
+            ws3.write_formula(i, 3, f'=B{i+1}*C{i+1}', c_fmt)
+        ws3.write(len(wc_data)+1, 0, 'TOTAL WORKING CAPITAL', h_fmt)
+        ws3.write_formula(len(wc_data)+1, 3, f'=SUM(D2:D{len(wc_data)+1})', h_fmt)
+        
+        # 4. Mix Details
+        df_dets.to_excel(w, index=False, sheet_name='4. Product Mix')
+        
+    st.download_button("📥 Download Advanced Interactive Excel", buf.getvalue(), "NexFlexo_Pro.xlsx", "application/vnd.ms-excel", use_container_width=True)
 
 with tabs[6]:
     ct1, ct2, ct3 = st.columns(3)
