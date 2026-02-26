@@ -168,7 +168,8 @@ with tabs[3]:
 with tabs[4]:
     st.markdown("### ⚙️ 1. Global Production Settings")
     c_set1, c_set2, c_set3, c_set4, c_set5 = st.columns(5)
-    t_tons = c_set1.number_input("🎯 Target Tons", 3600.0)
+    # تم تعديل الإنتاج المستهدف هنا إلى 4000 طن
+    t_tons = c_set1.number_input("🎯 Target Tons", 4000.0)
     std_w = c_set2.number_input("📏 Web Width (m)", 1.0)
     w_ink = c_set3.number_input("🎨 Wet Ink", 5.0)
     i_loss = c_set4.number_input("💧 Ink Loss%", 40.0)
@@ -178,12 +179,13 @@ with tabs[4]:
     st.markdown("### 📋 2. Product Portfolio (Recipes)")
     st.info(f"💡 **Tip:** Uncheck the 'Print' box for plain films. It will bypass ink costs and Flexo capacity!")
     
+    # تم هندسة النسب الجديدة (Mix%) لتشغيل الطباعة واراحة الاكسترودر
     init_data = [
-        {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 10, "Price": 12.0},
-        {"Product": "2 Lyr", "Print": True, "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 15, "Price": 13.0},
+        {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 15, "Price": 12.0},
+        {"Product": "2 Lyr", "Print": True, "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 25, "Price": 13.0},
         {"Product": "3 Lyr", "Print": True, "L1": "PET", "M1": 12, "L2": "ALU", "M2": 7, "L3": "PE", "M3": 50, "Mix%": 5, "Price": 15.0},
-        {"Product": "Shrink Plain", "Print": False, "L1": "PE", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 50, "Price": 5.0},
-        {"Product": "Printed Shop. Bag", "Print": True, "L1": "PE", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 9.0}
+        {"Product": "Shrink Plain", "Print": False, "L1": "PE", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 30, "Price": 5.0},
+        {"Product": "Printed Shop. Bag", "Print": True, "L1": "PE", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 25, "Price": 9.0}
     ]
     df_rec = st.data_editor(pd.DataFrame(init_data), num_rows="dynamic", use_container_width=True)
     
@@ -191,7 +193,6 @@ with tabs[4]:
     t_ink_k = 0.0; t_slv_k = 0.0; t_adh_k = 0.0
     t_pe_req_tons = 0.0  
     
-    # 🌟 متغير جديد لحساب إجمالي "المتر الطولي" المطلوب للطباعة فقط
     t_flexo_lm_req = 0.0
     t_lam_sqm_req = 0.0
     t_total_sqm_req = 0.0
@@ -237,7 +238,6 @@ with tabs[4]:
             if std_w > 0: l_len = sq / std_w
             
             if is_printed:
-                # نحسب المتر الطولي للمنتج المطبوع ونضيفه للاحتياج
                 t_flexo_lm_req += l_len  
                 t_ink_k += (sq * w_ink) / 1000.0
                 t_slv_k += (sq * w_ink * 0.5) / 1000.0
@@ -284,7 +284,6 @@ with tabs[4]:
     ck2.metric("🧪 Solv Kg/Mo", f"{t_slv_k/12:,.0f}")
     ck3.metric("🍯 Adh Kg/Mo", f"{t_adh_k/12:,.0f}")
     
-    # حساب القدرات لبقية الماكينات
     lm_max = t_tons * (l_sq / t_lam_sqm_req) if t_lam_sqm_req > 0 else 999999.0
     sl_max = t_tons * (s_sq / t_total_sqm_req) if t_total_sqm_req > 0 else 999999.0
     bg_max = t_tons * (b_sq / t_total_sqm_req) if t_total_sqm_req > 0 else 999999.0
@@ -292,17 +291,14 @@ with tabs[4]:
     st.markdown("### 🚦 5. Exact Line Balancing (Tons & Meters)")
     cb1, cb2, cb3, cb4, cb5 = st.columns(5)
     
-    # 1. الإكسترودر يقارن بالـ PE المطلوب
     if t_pe_req_tons <= e_tons: cb1.success(f"Ext: {e_tons:,.0f} T | Need PE: {t_pe_req_tons:,.0f} T")
     else: cb1.error(f"Ext: {e_tons:,.0f} T | Need PE: {t_pe_req_tons:,.0f} T")
         
-    # 2. الفلكسو الآن يقارن (بالمتر الطولي) فقط!
     if t_flexo_lm_req <= f_lm: 
         cb2.success(f"Flx Cap: {f_lm/1000000:,.2f}M m | Need: {t_flexo_lm_req/1000000:,.2f}M m")
     else: 
         cb2.error(f"Flx Cap: {f_lm/1000000:,.2f}M m | Need: {t_flexo_lm_req/1000000:,.2f}M m")
     
-    # البقية بالطن
     if t_tons <= lm_max: cb3.success(f"Lam: {lm_max:,.0f} T | {l_lm/1000000:,.1f}M m")
     else: cb3.error(f"Lam: {lm_max:,.0f} T | {l_lm/1000000:,.1f}M m")
     
