@@ -41,7 +41,8 @@ with tabs[1]:
     with m2:
         f_s = st.number_input("Flexo Speed", 350.0)
         f_w = st.number_input("Flexo Width", 1.0)
-        f_e = st.slider("Flexo Eff%", 40, 100, 90)
+        # تم تعديل الكفاءة هنا إلى 80%
+        f_e = st.slider("Flexo Eff%", 40, 100, 80)
         f_k = st.number_input("Flexo kW", 150.0)
         f_pr = st.number_input("Flexo CAPEX", 8000000.0)
         f_lm = net_hrs * 60.0 * f_s * (f_e/100.0)
@@ -178,7 +179,6 @@ with tabs[4]:
     st.markdown("### 📋 2. Product Portfolio (Recipes)")
     st.info(f"💡 **Tip:** Uncheck the 'Print' box for plain films. It will bypass ink costs and Flexo capacity!")
     
-    # تم تعديل النسب لتتوافق مع طلبك 100% وإضافة منتج أكياس التسوق المطبوعة
     init_data = [
         {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 10, "Price": 12.0},
         {"Product": "2 Lyr", "Print": True, "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 15, "Price": 13.0},
