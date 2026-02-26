@@ -8,8 +8,8 @@ st.title("🏭 NexFlexo Smart Plant Simulator")
 st.markdown("---")
 
 tabs = st.tabs([
-    "1. Raw Materials", "2. Production (OEE)", "3. Consumables", 
-    "4. HR & OPEX", "5. Recipes", "6. P&L Dashboard", "7. Commercial"
+    "1. Raw Materials", "2. Production & Power", "3. Consumables", 
+    "4. HR & OPEX", "5. Recipes", "6. P&L", "7. Commercial"
 ])
 
 # --- TAB 1 ---
@@ -41,7 +41,7 @@ with tabs[0]:
 
 # --- TAB 2 ---
 with tabs[1]:
-    st.header("Production Capacity & OEE")
+    st.header("Production Capacity & Schedule")
     col_w1, col_w2 = st.columns(2)
     work_days = col_w1.number_input("Working Days/Year", 300)
     shifts_day = col_w1.number_input("Shifts/Day", 2)
@@ -56,38 +56,54 @@ with tabs[1]:
     st.success(f"Available: {total_avail_hrs} Hrs | Net Running: {net_running_hrs} Hrs")
     st.markdown("---")
     
+    st.header("Machines Speeds, Power & Output")
+    price_per_kwh = st.number_input("Electricity Price (SAR/kWh)", 0.18)
+    
     m1, m2, m3 = st.columns(3)
     with m1:
         st.subheader("1. Flexo CI")
         f_speed = st.number_input("Flexo Speed (m/min)", 300)
         f_width = st.number_input("Flexo Web Width (m)", 1.0)
         f_eff = st.slider("Flexo Efficiency %", 40, 100, 70)
+        f_kw = st.number_input("Flexo Power (kW)", 150.0)
         f_price = st.number_input("Flexo Price (SAR)", 8000000)
+        
         f_lin_m = net_running_hrs * 60 * f_speed * (f_eff / 100)
         f_sq_m = f_lin_m * f_width
-        st.info(f"📏 Linear: {f_lin_m:,.0f} m\n🔲 Area: {f_sq_m:,.0f} Sq.m")
+        f_power_cost = net_running_hrs * f_kw * price_per_kwh
+        
+        st.info(f"📏 Linear: {f_lin_m:,.0f} m\n🔲 Area: {f_sq_m:,.0f} Sq.m\n⚡ Power Cost: SAR {f_power_cost:,.0f}")
 
     with m2:
         st.subheader("2. Lamination")
         l_speed = st.number_input("Lam Speed (m/min)", 250)
         l_width = st.number_input("Lam Web Width (m)", 1.0)
         l_eff = st.slider("Lam Efficiency %", 40, 100, 75)
+        l_kw = st.number_input("Lam Power (kW)", 80.0)
         l_price = st.number_input("Lam Price (SAR)", 1200000)
+        
         l_lin_m = net_running_hrs * 60 * l_speed * (l_eff / 100)
         l_sq_m = l_lin_m * l_width
-        st.info(f"📏 Linear: {l_lin_m:,.0f} m\n🔲 Area: {l_sq_m:,.0f} Sq.m")
+        l_power_cost = net_running_hrs * l_kw * price_per_kwh
+        
+        st.info(f"📏 Linear: {l_lin_m:,.0f} m\n🔲 Area: {l_sq_m:,.0f} Sq.m\n⚡ Power Cost: SAR {l_power_cost:,.0f}")
 
     with m3:
         st.subheader("3. Slitter")
         s_speed = st.number_input("Slitter Speed (m/min)", 400)
         s_width = st.number_input("Slitter Web Width (m)", 1.0)
         s_eff = st.slider("Slitter Efficiency %", 40, 100, 80)
+        s_kw = st.number_input("Slitter Power (kW)", 40.0)
         s_price = st.number_input("Slitter Price (SAR)", 800000)
+        
         s_lin_m = net_running_hrs * 60 * s_speed * (s_eff / 100)
         s_sq_m = s_lin_m * s_width
-        st.info(f"📏 Linear: {s_lin_m:,.0f} m\n🔲 Area: {s_sq_m:,.0f} Sq.m")
+        s_power_cost = net_running_hrs * s_kw * price_per_kwh
+        
+        st.info(f"📏 Linear: {s_lin_m:,.0f} m\n🔲 Area: {s_sq_m:,.0f} Sq.m\n⚡ Power Cost: SAR {s_power_cost:,.0f}")
 
     total_capex = f_price + l_price + s_price + 500000 
+    power_cost_annual = f_power_cost + l_power_cost + s_power_cost
 
 # --- TAB 3 ---
 with tabs[2]:
@@ -103,8 +119,6 @@ with tabs[2]:
 # --- TAB 4 ---
 with tabs[3]:
     st.header("HR & Admin (OPEX)")
-    
-    # تم التعديل هنا لتشمل 4 أعمدة وإضافة العمال (Workers)
     ch1, ch2, ch3, ch4 = st.columns(4)
     engineers = ch1.number_input("Engineers Qty", 3)
     eng_salary = ch1.number_input("Engineer Salary", 8000)
@@ -119,10 +133,12 @@ with tabs[3]:
     as_salary = ch4.number_input("Admin/Sales Salary", 8000)
     
     st.markdown("---")
-    admin_expenses = st.number_input("Monthly Admin Expenses", 40000)
-    power_cost_annual = st.number_input("Annual Power Cost", 400000)
+    c_op1, c_op2 = st.columns(2)
+    admin_expenses = c_op1.number_input("Monthly Admin Expenses (Rent, etc.)", 40000)
     
-    # تم تحديث معادلة الرواتب لتشمل العمال
+    # Power cost is now auto-calculated and displayed here as read-only
+    c_op2.metric("Annual Power Cost (Auto-calculated from machines)", f"SAR {power_cost_annual:,.0f}")
+    
     monthly_payroll = (engineers*eng_salary) + (operators*op_salary) + (workers*worker_salary) + (admin_sales*as_salary)
 
 # --- TAB 5 ---
@@ -134,4 +150,92 @@ with tabs[4]:
     adh_gsm_per_pass = col_c3.number_input("Adhesive per Lam Pass", value=1.8)
     
     dry_ink_gsm = wet_ink_gsm * (1 - (ink_loss_percent / 100))
-    solvent_ratio = 0.5
+    solvent_ratio = 0.5 
+    
+    st.markdown("---")
+    target_sales_tons = st.number_input("Target Annual Sales (Tons)", 1200)
+    
+    recipe_data = [
+        {"Structure": "1 Layer", "L1": "BOPP", "Mic_1": 38, "L2": "None", "Mic_2": 0, "L3": "None", "Mic_3": 0, "Mix_%": 60, "Sell_Price": 12.0},
+        {"Structure": "2 Layers", "L1": "BOPP", "Mic_1": 20, "L2": "BOPP", "Mic_2": 20, "L3": "None", "Mic_3": 0, "Mix_%": 30, "Sell_Price": 13.0},
+        {"Structure": "3 Layers", "L1": "PET", "Mic_1": 12, "L2": "ALU", "Mic_2": 7, "L3": "PE", "Mic_3": 50, "Mix_%": 10, "Sell_Price": 15.0}
+    ]
+    df_recipes = st.data_editor(pd.DataFrame(recipe_data), num_rows="dynamic", use_container_width=True)
+    
+    weighted_avg_gsm = 0
+    weighted_avg_rm_cost = 0 
+    weighted_avg_sell_price = 0
+    lamination_mix_ratio = 0 
+    
+    total_annual_ink_kg = 0
+    total_annual_solv_kg = 0
+    total_annual_adh_kg = 0
+    
+    details = []
+
+    for idx, row in df_recipes.iterrows():
+        gsm1 = row["Mic_1"] * mat_db[row["L1"]]["d"]
+        gsm2 = row["Mic_2"] * mat_db[row["L2"]]["d"]
+        gsm3 = row["Mic_3"] * mat_db[row["L3"]]["d"]
+        base_mat_gsm = gsm1 + gsm2 + gsm3
+
+        lam_passes = 0
+        if row["L2"] != "None" and row["Mic_2"] > 0: lam_passes += 1
+        if row["L3"] != "None" and row["Mic_3"] > 0: lam_passes += 1
+        adh_gsm = lam_passes * adh_gsm_per_pass
+        
+        total_gsm = base_mat_gsm + dry_ink_gsm + adh_gsm
+        
+        c1 = (gsm1/1000) * mat_db[row["L1"]]["p"]
+        c2 = (gsm2/1000) * mat_db[row["L2"]]["p"]
+        c3 = (gsm3/1000) * mat_db[row["L3"]]["p"]
+        c_adh = (adh_gsm/1000) * adhesive_price
+        c_ink = (wet_ink_gsm/1000) * ink_price
+        solvent_gsm = wet_ink_gsm * solvent_ratio
+        c_solv = (solvent_gsm/1000) * solvent_price 
+        
+        total_cost_m2 = c1 + c2 + c3 + c_adh + c_ink + c_solv
+        cost_per_kg = total_cost_m2 / (total_gsm / 1000) if total_gsm > 0 else 0
+        
+        recipe_tons = target_sales_tons * (row["Mix_%"] / 100)
+        if total_gsm > 0:
+            recipe_sqm = (recipe_tons * 1000000) / total_gsm
+            total_annual_ink_kg += (recipe_sqm * wet_ink_gsm) / 1000
+            total_annual_solv_kg += (recipe_sqm * solvent_gsm) / 1000
+            total_annual_adh_kg += (recipe_sqm * adh_gsm) / 1000
+        
+        mix_ratio = row["Mix_%"] / 100
+        weighted_avg_gsm += total_gsm * mix_ratio
+        weighted_avg_rm_cost += cost_per_kg * mix_ratio
+        weighted_avg_sell_price += row["Sell_Price"] * mix_ratio
+        
+        if lam_passes > 0: lamination_mix_ratio += mix_ratio
+
+        details.append({
+            "Structure": row["Structure"], "Target (Tons)": recipe_tons,
+            "Base GSM": round(base_mat_gsm, 1), "Glue GSM": round(adh_gsm, 1),
+            "Dry Ink GSM": round(dry_ink_gsm, 1), "Final Total GSM": round(total_gsm, 1),
+            "Cost (SAR/Kg)": round(cost_per_kg, 2), "Margin (SAR/Kg)": round(row["Sell_Price"] - cost_per_kg, 2)
+        })
+
+    st.markdown("### 📊 Production Breakdown")
+    st.dataframe(pd.DataFrame(details), use_container_width=True)
+    total_revenue = target_sales_tons * weighted_avg_sell_price * 1000
+
+    st.markdown("---")
+    st.subheader("💧 Monthly Chemical Consumption")
+    col_chem1, col_chem2, col_chem3 = st.columns(3)
+    col_chem1.metric("🎨 Wet Ink (Kg/Month)", f"{total_annual_ink_kg / 12:,.0f} Kg")
+    col_chem2.metric("🧪 Solvent (Kg/Month)", f"{total_annual_solv_kg / 12:,.0f} Kg")
+    col_chem3.metric("🍯 Adhesive (Kg/Month)", f"{total_annual_adh_kg / 12:,.0f} Kg")
+
+    st.markdown("---")
+    st.subheader("🚦 Line Balancing & Bottleneck Check")
+    flexo_max_tons = (f_sq_m * weighted_avg_gsm) / 1000000
+    slit_max_tons = (s_sq_m * weighted_avg_gsm) / 1000000
+    lam_max_tons = (l_sq_m * weighted_avg_gsm) / 1000000 / lamination_mix_ratio if lamination_mix_ratio > 0 else 9999999 
+
+    cb1, cb2, cb3 = st.columns(3)
+    def render_capacity(col, name, max_tons, target):
+        if target > max_tons: col.error(f"❌ **{name}**\n\nMax: {max_tons:,.0f} T")
+        else: col.success(f"✅ **{name}**\n\nMax: {max_tons:,.0f} T")
