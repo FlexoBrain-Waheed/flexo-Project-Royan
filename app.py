@@ -168,8 +168,8 @@ with tabs[3]:
 with tabs[4]:
     st.markdown("### ⚙️ 1. Global Production Settings")
     c_set1, c_set2, c_set3, c_set4, c_set5 = st.columns(5)
-    # تم تعديل الإنتاج المستهدف هنا إلى 4000 طن
-    t_tons = c_set1.number_input("🎯 Target Tons", 4000.0)
+    # تم رفع الإنتاج إلى 4500 طن
+    t_tons = c_set1.number_input("🎯 Target Tons", 4500.0)
     std_w = c_set2.number_input("📏 Web Width (m)", 1.0)
     w_ink = c_set3.number_input("🎨 Wet Ink", 5.0)
     i_loss = c_set4.number_input("💧 Ink Loss%", 40.0)
@@ -179,13 +179,13 @@ with tabs[4]:
     st.markdown("### 📋 2. Product Portfolio (Recipes)")
     st.info(f"💡 **Tip:** Uncheck the 'Print' box for plain films. It will bypass ink costs and Flexo capacity!")
     
-    # تم هندسة النسب الجديدة (Mix%) لتشغيل الطباعة واراحة الاكسترودر
+    # تم تعديل النسب لتحقيق التوازن المثالي مع 4500 طن
     init_data = [
-        {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 15, "Price": 12.0},
+        {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 12.0},
         {"Product": "2 Lyr", "Print": True, "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 25, "Price": 13.0},
         {"Product": "3 Lyr", "Print": True, "L1": "PET", "M1": 12, "L2": "ALU", "M2": 7, "L3": "PE", "M3": 50, "Mix%": 5, "Price": 15.0},
         {"Product": "Shrink Plain", "Print": False, "L1": "PE", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 30, "Price": 5.0},
-        {"Product": "Printed Shop. Bag", "Print": True, "L1": "PE", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 25, "Price": 9.0}
+        {"Product": "Printed Shop. Bag", "Print": True, "L1": "PE", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 9.0}
     ]
     df_rec = st.data_editor(pd.DataFrame(init_data), num_rows="dynamic", use_container_width=True)
     
