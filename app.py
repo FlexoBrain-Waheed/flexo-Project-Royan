@@ -53,7 +53,7 @@ with tabs[0]:
     adhesive_price = ci3.number_input("Adhesive Price/Kg", 12.0)
 
 # ==========================================
-# 2. Production & OEE (Machines Capacity)
+# 2. Production & OEE
 # ==========================================
 with tabs[1]:
     st.header("Production Capacity & OEE")
@@ -153,176 +153,27 @@ with tabs[3]:
     monthly_payroll = (engineers*eng_salary) + (operators*op_salary) + (admin_sales*as_salary)
 
 # ==========================================
-# 5. Recipes & Line Balance (Bottleneck Check)
+# 5. Recipes & Line Balance
 # ==========================================
 with tabs[4]:
     st.header("Recipes & Production Mix")
-    st.info("💡 Advanced: Ink is fixed at 5g/m2. Solvent is 50% of Ink. Adhesives are 1.8g/m2 per lam pass. Solvent cost is added, but its weight evaporates!")
     
+    # New Added Feature: Chemicals & Weights Settings
+    st.markdown("### 🧪 Chemicals & Weights Settings")
+    st.info("These settings apply instantly to all recipes. Ink evaporates 40%, and Solvent evaporates 100%.")
+    col_c1, col_c2, col_c3 = st.columns(3)
+    
+    wet_ink_gsm = col_c1.number_input("Wet Ink Applied (g/m²)", value=5.0)
+    ink_loss_percent = col_c2.number_input("Ink Evaporation Loss %", value=40)
+    adh_gsm_per_pass = col_c3.number_input("Adhesive per Lam Pass (g/m²)", value=1.8)
+    
+    # Calculate dry ink that actually stays on the product
+    dry_ink_gsm = wet_ink_gsm * (1 - (ink_loss_percent / 100))
+    # Solvent is always half of ink (added to cost, but 100% evaporates so it's 0g in final product)
+    solvent_ratio = 0.5 
+    
+    st.markdown("---")
     target_sales_tons = st.number_input("Target Annual Sales (Tons)", 1200)
     
     recipe_data = [
-        {"Structure": "1 Layer (Label)", "L1": "BOPP", "Mic_1": 38, "L2": "None", "Mic_2": 0, "L3": "None", "Mic_3": 0, "Mix_%": 60, "Sell_Price": 12.0},
-        {"Structure": "2 Layers (Snacks)", "L1": "BOPP", "Mic_1": 20, "L2": "BOPP", "Mic_2": 20, "L3": "None", "Mic_3": 0, "Mix_%": 30, "Sell_Price": 13.0},
-        {"Structure": "3 Layers (Pouch)", "L1": "PET", "Mic_1": 12, "L2": "ALU", "Mic_2": 7, "L3": "PE", "Mic_3": 50, "Mix_%": 10, "Sell_Price": 15.0}
-    ]
-    df_recipes = st.data_editor(pd.DataFrame(recipe_data), num_rows="dynamic", use_container_width=True)
-    
-    if df_recipes["Mix_%"].sum() != 100:
-        st.error("⚠️ Mix % must equal exactly 100%!")
-    
-    weighted_avg_gsm = 0
-    weighted_avg_rm_cost = 0 
-    weighted_avg_sell_price = 0
-    lamination_mix_ratio = 0 
-    
-    details = []
-
-    for idx, row in df_recipes.iterrows():
-        gsm1 = row["Mic_1"] * mat_db[row["L1"]]["d"]
-        gsm2 = row["Mic_2"] * mat_db[row["L2"]]["d"]
-        gsm3 = row["Mic_3"] * mat_db[row["L3"]]["d"]
-
-        lam_passes = 0
-        if row["L2"] != "None" and row["Mic_2"] > 0: lam_passes += 1
-        if row["L3"] != "None" and row["Mic_3"] > 0: lam_passes += 1
-        
-        # New Engineering Rules applied here:
-        adh_gsm = lam_passes * 1.8   # 1.8g per pass
-        ink_gsm = 5.0                # Fixed 5g ink
-        solvent_gsm = ink_gsm * 0.5  # Solvent is half of ink (2.5g)
-        
-        # Solvent evaporates! It does NOT add to the final weight of the film.
-        total_gsm = gsm1 + gsm2 + gsm3 + adh_gsm + ink_gsm
-        
-        c1 = (gsm1/1000) * mat_db[row["L1"]]["p"]
-        c2 = (gsm2/1000) * mat_db[row["L2"]]["p"]
-        c3 = (gsm3/1000) * mat_db[row["L3"]]["p"]
-        c_adh = (adh_gsm/1000) * adhesive_price
-        c_ink = (ink_gsm/1000) * ink_price
-        c_solv = (solvent_gsm/1000) * solvent_price # Cost of solvent included
-        
-        # Total cost includes the evaporated solvent
-        total_cost_m2 = c1 + c2 + c3 + c_adh + c_ink + c_solv
-        cost_per_kg = total_cost_m2 / (total_gsm / 1000) if total_gsm > 0 else 0
-        
-        mix_ratio = row["Mix_%"] / 100
-        weighted_avg_gsm += total_gsm * mix_ratio
-        weighted_avg_rm_cost += cost_per_kg * mix_ratio
-        weighted_avg_sell_price += row["Sell_Price"] * mix_ratio
-        
-        if lam_passes > 0:
-            lamination_mix_ratio += mix_ratio
-
-        details.append({
-            "Structure": row["Structure"],
-            "Target (Tons)": target_sales_tons * mix_ratio,
-            "Final GSM (No Solv)": round(total_gsm, 1),
-            "True Cost (SAR/Kg)": round(cost_per_kg, 2),
-            "Margin (SAR/Kg)": round(row["Sell_Price"] - cost_per_kg, 2)
-        })
-
-    st.dataframe(pd.DataFrame(details), use_container_width=True)
-    total_revenue = target_sales_tons * weighted_avg_sell_price * 1000
-
-    # ==========================================
-    # BOTTLENECK ANALYSIS
-    # ==========================================
-    st.markdown("---")
-    st.subheader("🚦 Line Balancing & Bottleneck Check")
-    
-    flexo_max_tons = (f_sq_m * weighted_avg_gsm) / 1000000
-    slit_max_tons = (s_sq_m * weighted_avg_gsm) / 1000000
-    
-    if lamination_mix_ratio > 0:
-        lam_max_tons = (l_sq_m * weighted_avg_gsm) / 1000000 / lamination_mix_ratio
-    else:
-        lam_max_tons = 9999999 
-
-    cb1, cb2, cb3 = st.columns(3)
-    
-    def render_capacity(col, name, max_tons, target):
-        if target > max_tons:
-            col.error(f"❌ **{name}**\n\nMax: {max_tons:,.0f} T\n\n*(OVERLOAD)*")
-        else:
-            col.success(f"✅ **{name}**\n\nMax: {max_tons:,.0f} T\n\n*(OK)*")
-
-    render_capacity(cb1, "Flexo Capability", flexo_max_tons, target_sales_tons)
-    render_capacity(cb2, "Lamination Capability", lam_max_tons, target_sales_tons)
-    render_capacity(cb3, "Slitter Capability", slit_max_tons, target_sales_tons)
-    
-    plant_bottleneck = min(flexo_max_tons, lam_max_tons, slit_max_tons)
-    if target_sales_tons > plant_bottleneck:
-        st.warning(f"⚠️ **Action Required:** Your target is {target_sales_tons} T, but your bottleneck limits the plant to **{plant_bottleneck:,.0f} T**.")
-
-# ==========================================
-# 6. P&L Dashboard & Excel
-# ==========================================
-with tabs[5]:
-    st.header("P&L Dashboard")
-    
-    # Costs are already weighted correctly based on the Mix
-    annual_raw_mat = target_sales_tons * 1000 * weighted_avg_rm_cost
-    est_annual_meters = target_sales_tons * (1000 / weighted_avg_gsm) * 1000 if weighted_avg_gsm > 0 else 0 
-    
-    annual_anilox = (est_annual_meters / (anilox_life * 1000000)) * anilox_price * 8 if anilox_life > 0 else 0
-    annual_blade = (est_annual_meters / (blade_life * 1000)) * blade_price * 8 if blade_life > 0 else 0
-    annual_endseals = (net_running_hrs / endseal_life) * endseal_price * 8 if endseal_life > 0 else 0
-    
-    annual_consumables = annual_anilox + annual_blade + annual_endseals 
-    annual_hr_admin = (monthly_payroll + admin_expenses) * 12
-    
-    total_cogs_opex = annual_raw_mat + annual_consumables + annual_hr_admin + power_cost_annual
-    net_profit = total_revenue - total_cogs_opex
-    payback = total_capex / net_profit if net_profit > 0 else 0
-
-    col_res1, col_res2, col_res3, col_res4 = st.columns(4)
-    col_res1.metric("Revenue (SAR)", f"{total_revenue:,.0f}")
-    col_res2.metric("Total OPEX (SAR)", f"{total_cogs_opex:,.0f}")
-    col_res3.metric("Net Profit (SAR)", f"{net_profit:,.0f}")
-    col_res4.metric("Payback (Years)", f"{payback:.1f}")
-    
-    cost_data = pd.DataFrame({
-        "Item": ["Materials (Films, Ink, Glue, Solv)", "Consumables", "HR & Admin", "Power"],
-        "Value": [annual_raw_mat, annual_consumables, annual_hr_admin, power_cost_annual]
-    })
-    fig = px.pie(cost_data, values="Value", names="Item", title="OPEX Breakdown", hole=0.4)
-    st.plotly_chart(fig, use_container_width=True)
-
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-        workbook = writer.book
-        ws = workbook.add_worksheet('P&L')
-        
-        fmt_head = workbook.add_format({'bold': True, 'bg_color': '#1F4E78', 'font_color': 'white', 'border': 1})
-        fmt_money = workbook.add_format({'num_format': '#,##0', 'border': 1})
-        
-        ws.write('A1', 'Item', fmt_head)
-        ws.write('B1', 'Amount (SAR)', fmt_head)
-        
-        data_to_excel = [
-            ("Total Target Sales (Tons)", target_sales_tons),
-            ("Total Revenue", total_revenue),
-            ("Materials (Films, Ink, Glue, Solvent)", annual_raw_mat),
-            ("Consumables (Anilox, Blades, Seals)", annual_consumables),
-            ("Payroll (HR)", monthly_payroll * 12),
-            ("Admin & Rent", admin_expenses * 12),
-            ("Power Cost", power_cost_annual),
-            ("Net Profit", net_profit),
-            ("Total CAPEX", total_capex)
-        ]
-        
-        for row_num, (item, val) in enumerate(data_to_excel, start=1):
-            ws.write(row_num, 0, item, fmt_money)
-            ws.write(row_num, 1, val, fmt_money)
-            
-        ws.set_column('A:A', 35)
-        ws.set_column('B:B', 20)
-
-    st.download_button(
-        label="📥 Download P&L (Excel)",
-        data=buffer.getvalue(),
-        file_name="Flexo_Plant_PNL.xlsx",
-        mime="application/vnd.ms-excel",
-        use_container_width=True
-    )
+        {"Structure": "1 Layer (Label)", "L1": "BOPP", "Mic_1": 38, "L2": "None", "Mic_2": 0, "L3": "None", "Mic_3": 0, "Mix_%": 60, "
