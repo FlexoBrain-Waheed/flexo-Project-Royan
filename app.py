@@ -53,7 +53,28 @@ with tabs[0]:
 # ==========================================
 # 2. Production & OEE (Machines Capacity)
 # ==========================================
-# Individual Machine Capacities
+with tabs[1]:
+    st.header("Production Capacity & OEE")
+    
+    # Working Schedule
+    col_w1, col_w2 = st.columns(2)
+    with col_w1:
+        st.subheader("Working Schedule")
+        work_days = st.number_input("Working Days/Year", 300)
+        shifts_day = st.number_input("Shifts/Day", 2)
+        hrs_shift = st.number_input("Hours/Shift", 12)
+        total_avail_hrs = work_days * shifts_day * hrs_shift
+    with col_w2:
+        st.subheader("Changeovers (Downtime)")
+        jobs_month = st.number_input("Jobs/Month", 60)
+        hrs_per_changeover = st.number_input("Hours/Changeover", 1.0)
+        total_downtime = (jobs_month * 12) * hrs_per_changeover
+        net_running_hrs = total_avail_hrs - total_downtime
+
+    st.success(f"Available: {total_avail_hrs} Hrs | Downtime: {total_downtime} Hrs | Net Running: {net_running_hrs} Hrs")
+    st.markdown("---")
+    
+    # Individual Machine Capacities with Efficiency %
     st.header("Machines Speeds & Output (Area)")
     m1, m2, m3 = st.columns(3)
     
@@ -61,10 +82,9 @@ with tabs[0]:
         st.subheader("1. Flexo CI")
         f_speed = st.number_input("Flexo Speed (m/min)", 300)
         f_width = st.number_input("Flexo Web Width (m)", 1.0)
-        f_eff = st.slider("Flexo Efficiency %", 40, 100, 70) # نسبة الكفاءة الواقعية
+        f_eff = st.slider("Flexo Efficiency %", 40, 100, 70)
         f_price = st.number_input("Flexo Price (SAR)", 8000000)
         
-        # المعادلة الواقعية (السرعة × الساعات × الكفاءة)
         f_lin_m = net_running_hrs * 60 * f_speed * (f_eff / 100)
         f_sq_m = f_lin_m * f_width
         st.info(f"📏 Annual Linear: {f_lin_m:,.0f} m\n📉 Monthly Avg: {(f_lin_m/12):,.0f} m\n\n🔲 Annual Area: {f_sq_m:,.0f} Sq.m")
@@ -91,7 +111,8 @@ with tabs[0]:
         s_sq_m = s_lin_m * s_width
         st.info(f"📏 Annual Linear: {s_lin_m:,.0f} m\n📉 Monthly Avg: {(s_lin_m/12):,.0f} m\n\n🔲 Annual Area: {s_sq_m:,.0f} Sq.m")
 
-    total_capex = f_price + l_price + s_price + 500000
+    total_capex = f_price + l_price + s_price + 500000 
+
 # ==========================================
 # 3. Consumables
 # ==========================================
@@ -153,7 +174,7 @@ with tabs[4]:
     weighted_avg_gsm = 0
     weighted_avg_rm_cost = 0 
     weighted_avg_sell_price = 0
-    lamination_mix_ratio = 0 # To track how much % actually goes to Lamination
+    lamination_mix_ratio = 0 
     
     details = []
 
@@ -203,17 +224,14 @@ with tabs[4]:
     # ==========================================
     st.markdown("---")
     st.subheader("🚦 Line Balancing & Bottleneck Check")
-    st.write("Does your machine capacity support the Target Sales based on this specific Mix?")
     
-    # Calculate Max Tons each machine can produce based on this specific mix GSM
     flexo_max_tons = (f_sq_m * weighted_avg_gsm) / 1000000
     slit_max_tons = (s_sq_m * weighted_avg_gsm) / 1000000
     
-    # Lamination Max Equivalent Plant Tons (It only processes the laminated %)
     if lamination_mix_ratio > 0:
         lam_max_tons = (l_sq_m * weighted_avg_gsm) / 1000000 / lamination_mix_ratio
     else:
-        lam_max_tons = 9999999 # Unlimited if 0% laminated products
+        lam_max_tons = 9999999 
 
     cb1, cb2, cb3 = st.columns(3)
     
