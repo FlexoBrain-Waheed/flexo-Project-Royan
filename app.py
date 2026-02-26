@@ -46,9 +46,11 @@ with tabs[0]:
     }
     
     st.markdown("---")
-    ci1, ci2 = st.columns(2)
+    st.subheader("Inks, Adhesives & Solvents")
+    ci1, ci2, ci3 = st.columns(3)
     ink_price = ci1.number_input("Ink Price/Kg", 15.0)
-    adhesive_price = ci2.number_input("Adhesive Price/Kg", 12.0)
+    solvent_price = ci2.number_input("Solvent Price/Kg", 6.0)
+    adhesive_price = ci3.number_input("Adhesive Price/Kg", 12.0)
 
 # ==========================================
 # 2. Production & OEE (Machines Capacity)
@@ -56,7 +58,6 @@ with tabs[0]:
 with tabs[1]:
     st.header("Production Capacity & OEE")
     
-    # Working Schedule
     col_w1, col_w2 = st.columns(2)
     with col_w1:
         st.subheader("Working Schedule")
@@ -74,7 +75,6 @@ with tabs[1]:
     st.success(f"Available: {total_avail_hrs} Hrs | Downtime: {total_downtime} Hrs | Net Running: {net_running_hrs} Hrs")
     st.markdown("---")
     
-    # Individual Machine Capacities with Efficiency %
     st.header("Machines Speeds & Output (Area)")
     m1, m2, m3 = st.columns(3)
     
@@ -157,7 +157,7 @@ with tabs[3]:
 # ==========================================
 with tabs[4]:
     st.header("Recipes & Production Mix")
-    st.info("💡 The system calculates exact GSM, then checks if your machines can handle the target Tons.")
+    st.info("💡 Advanced: Ink is fixed at 5g/m2. Solvent is 50% of Ink. Adhesives are 1.8g/m2 per lam pass. Solvent cost is added, but its weight evaporates!")
     
     target_sales_tons = st.number_input("Target Annual Sales (Tons)", 1200)
     
@@ -187,8 +187,12 @@ with tabs[4]:
         if row["L2"] != "None" and row["Mic_2"] > 0: lam_passes += 1
         if row["L3"] != "None" and row["Mic_3"] > 0: lam_passes += 1
         
-        adh_gsm = lam_passes * 2.0 
-        ink_gsm = 3.0 
+        # New Engineering Rules applied here:
+        adh_gsm = lam_passes * 1.8   # 1.8g per pass
+        ink_gsm = 5.0                # Fixed 5g ink
+        solvent_gsm = ink_gsm * 0.5  # Solvent is half of ink (2.5g)
+        
+        # Solvent evaporates! It does NOT add to the final weight of the film.
         total_gsm = gsm1 + gsm2 + gsm3 + adh_gsm + ink_gsm
         
         c1 = (gsm1/1000) * mat_db[row["L1"]]["p"]
@@ -196,8 +200,10 @@ with tabs[4]:
         c3 = (gsm3/1000) * mat_db[row["L3"]]["p"]
         c_adh = (adh_gsm/1000) * adhesive_price
         c_ink = (ink_gsm/1000) * ink_price
+        c_solv = (solvent_gsm/1000) * solvent_price # Cost of solvent included
         
-        total_cost_m2 = c1 + c2 + c3 + c_adh + c_ink
+        # Total cost includes the evaporated solvent
+        total_cost_m2 = c1 + c2 + c3 + c_adh + c_ink + c_solv
         cost_per_kg = total_cost_m2 / (total_gsm / 1000) if total_gsm > 0 else 0
         
         mix_ratio = row["Mix_%"] / 100
@@ -211,8 +217,8 @@ with tabs[4]:
         details.append({
             "Structure": row["Structure"],
             "Target (Tons)": target_sales_tons * mix_ratio,
-            "GSM": round(total_gsm, 1),
-            "Cost (SAR/Kg)": round(cost_per_kg, 2),
+            "Final GSM (No Solv)": round(total_gsm, 1),
+            "True Cost (SAR/Kg)": round(cost_per_kg, 2),
             "Margin (SAR/Kg)": round(row["Sell_Price"] - cost_per_kg, 2)
         })
 
@@ -220,7 +226,7 @@ with tabs[4]:
     total_revenue = target_sales_tons * weighted_avg_sell_price * 1000
 
     # ==========================================
-    # BOTTLENECK ANALYSIS (Line Balancing)
+    # BOTTLENECK ANALYSIS
     # ==========================================
     st.markdown("---")
     st.subheader("🚦 Line Balancing & Bottleneck Check")
@@ -247,7 +253,7 @@ with tabs[4]:
     
     plant_bottleneck = min(flexo_max_tons, lam_max_tons, slit_max_tons)
     if target_sales_tons > plant_bottleneck:
-        st.warning(f"⚠️ **Action Required:** Your target is {target_sales_tons} T, but your bottleneck limits the plant to **{plant_bottleneck:,.0f} T**. You need to increase shifts, increase machine speed, or change the sales mix!")
+        st.warning(f"⚠️ **Action Required:** Your target is {target_sales_tons} T, but your bottleneck limits the plant to **{plant_bottleneck:,.0f} T**.")
 
 # ==========================================
 # 6. P&L Dashboard & Excel
@@ -255,6 +261,7 @@ with tabs[4]:
 with tabs[5]:
     st.header("P&L Dashboard")
     
+    # Costs are already weighted correctly based on the Mix
     annual_raw_mat = target_sales_tons * 1000 * weighted_avg_rm_cost
     est_annual_meters = target_sales_tons * (1000 / weighted_avg_gsm) * 1000 if weighted_avg_gsm > 0 else 0 
     
@@ -262,7 +269,7 @@ with tabs[5]:
     annual_blade = (est_annual_meters / (blade_life * 1000)) * blade_price * 8 if blade_life > 0 else 0
     annual_endseals = (net_running_hrs / endseal_life) * endseal_price * 8 if endseal_life > 0 else 0
     
-    annual_consumables = annual_anilox + annual_blade + annual_endseals + (target_sales_tons * 200)
+    annual_consumables = annual_anilox + annual_blade + annual_endseals 
     annual_hr_admin = (monthly_payroll + admin_expenses) * 12
     
     total_cogs_opex = annual_raw_mat + annual_consumables + annual_hr_admin + power_cost_annual
@@ -276,7 +283,7 @@ with tabs[5]:
     col_res4.metric("Payback (Years)", f"{payback:.1f}")
     
     cost_data = pd.DataFrame({
-        "Item": ["Raw Material", "Consumables", "HR & Admin", "Power"],
+        "Item": ["Materials (Films, Ink, Glue, Solv)", "Consumables", "HR & Admin", "Power"],
         "Value": [annual_raw_mat, annual_consumables, annual_hr_admin, power_cost_annual]
     })
     fig = px.pie(cost_data, values="Value", names="Item", title="OPEX Breakdown", hole=0.4)
@@ -296,7 +303,7 @@ with tabs[5]:
         data_to_excel = [
             ("Total Target Sales (Tons)", target_sales_tons),
             ("Total Revenue", total_revenue),
-            ("Raw Materials Cost", annual_raw_mat),
+            ("Materials (Films, Ink, Glue, Solvent)", annual_raw_mat),
             ("Consumables (Anilox, Blades, Seals)", annual_consumables),
             ("Payroll (HR)", monthly_payroll * 12),
             ("Admin & Rent", admin_expenses * 12),
