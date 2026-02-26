@@ -135,7 +135,11 @@ with tabs[4]:
     a_gsm = c_c3.number_input("Adh GSM", 1.8)
     
     d_ink = w_ink * (1.0 - (i_loss / 100.0))
-    tgt_tons = st.number_input("Target Tons", 3600.0)
+    
+    st.markdown("---")
+    ct1, ct2 = st.columns(2)
+    tgt_tons = ct1.number_input("Target Tons", 3600.0)
+    std_width = ct2.number_input("Web Width (m) for Length Calc", 1.0)
     
     init_data = [
         {"Product":"1 Lyr", "L1":"BOPP", "M1":38, "L2":"None", "M2":0, "L3":"None", "M3":0, "Mix%":60, "Price":12.0},
@@ -151,7 +155,9 @@ with tabs[4]:
     t_ink = 0.0
     t_slv = 0.0
     t_adh = 0.0
+    
     dets = []
+    mat_needs = {}
     
     for _, r in df_rec.iterrows():
         g1 = r["M1"] * mat_db[r["L1"]]["d"]
@@ -177,12 +183,21 @@ with tabs[4]:
             cpk = (c1 + c2 + c3 + ca + ci + cs) / (tg/1000)
             
         r_ton = tgt_tons * (r["Mix%"]/100)
+        layer_len_m = 0.0
         
         if tg > 0:
             sq = (r_ton * 1000000) / tg
+            if std_width > 0: layer_len_m = sq / std_width
+            
             t_ink += (sq * w_ink) / 1000
             t_slv += (sq * w_ink * 0.5) / 1000
             t_adh += (sq * ag) / 1000
+            
+            # حساب الأمتار لكل مادة خام
+            for lyr, mic in [("L1","M1"), ("L2","M2"), ("L3","M3")]:
+                if r[lyr] != "None" and r[mic] > 0:
+                    mat_key = f"{r[lyr]} {r[mic]}µ"
+                    mat_needs[mat_key] = mat_needs.get(mat_key, 0.0) + layer_len_m
         
         mr = r["Mix%"] / 100.0
         w_gsm += tg * mr
@@ -195,12 +210,18 @@ with tabs[4]:
         dets.append({
             "Product": r["Product"],
             "Tons": r_ton,
+            "Layer Length (m)": round(layer_len_m, 0),
             "Final GSM": round(tg, 1),
             "Cost/Kg": round(cpk, 2),
             "Margin": round(r["Price"] - cpk, 2)
         })
         
     st.dataframe(pd.DataFrame(dets), use_container_width=True)
+    
+    st.markdown("### 🧻 Raw Material Roll Purchasing (Linear Meters)")
+    if mat_needs:
+        df_mat = pd.DataFrame([{"Material & Micron": k, "Total Linear Meters Required": f"{v:,.0f} m"} for k, v in mat_needs.items()])
+        st.dataframe(df_mat, use_container_width=True)
     
     c_k1, c_k2, c_k3 = st.columns(3)
     c_k1.metric("Ink (Kg/Mo)", f"{t_ink/12:,.0f}")
