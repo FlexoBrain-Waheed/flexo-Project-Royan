@@ -55,7 +55,8 @@ with tabs[1]:
     
     with m1:
         st.subheader("Extruder")
-        e_kg = st.number_input("Extruder Kg/h", 300.0)
+        # تم تعديل إنتاجية الإكسترودر إلى 500
+        e_kg = st.number_input("Extruder Kg/h", 500.0)
         e_kw = st.number_input("Extruder kW", 300.0)
         e_pr = st.number_input("Extruder CAPEX", 5000000.0)
         e_tons = (e_kg * net_hrs) / 1000.0
@@ -64,7 +65,8 @@ with tabs[1]:
         
     with m2:
         st.subheader("Flexo CI")
-        f_s = st.number_input("Flexo Speed", 300.0)
+        # تم تعديل سرعة الفلكسو إلى 350
+        f_s = st.number_input("Flexo Speed", 350.0)
         f_w = st.number_input("Flexo Width", 1.0)
         f_e = st.slider("Flexo Eff%", 40, 100, 70)
         f_k = st.number_input("Flexo kW", 150.0)
@@ -76,7 +78,8 @@ with tabs[1]:
         
     with m3:
         st.subheader("Lamination")
-        l_s = st.number_input("Lam Speed", 250.0)
+        # تم تعديل سرعة اللامنيشن إلى 450
+        l_s = st.number_input("Lam Speed", 450.0)
         l_w = st.number_input("Lam Width", 1.0)
         l_e = st.slider("Lam Eff%", 40, 100, 75)
         l_k = st.number_input("Lam kW", 80.0)
@@ -114,7 +117,6 @@ with tabs[1]:
         st.info(f"📏 {b_lm:,.0f} m | ⚡ SAR {b_pc:,.0f}")
         
     st.markdown("---")
-    # CHART GENERATION
     st.subheader("📊 Machines Capacity Check (Tons/Year)")
     est_gsm = st.number_input("Estimated Avg GSM for Chart", 80.0)
     
@@ -135,7 +137,8 @@ with tabs[1]:
     t_capex = e_pr + f_pr + l_pr + s_pr + b_pr + 500000.0
     c_cap1.metric("Total CAPEX (Investment)", f"SAR {t_capex:,.0f}")
     
-    dep_y = c_cap2.number_input("Depreciation Yrs", 15.0)
+    # تم تعديل سنوات الإهلاك إلى 10
+    dep_y = c_cap2.number_input("Depreciation Yrs", 10.0)
     ann_dep = 0.0
     if dep_y > 0:
         ann_dep = t_capex / dep_y
@@ -278,7 +281,6 @@ with tabs[4]:
     ck2.metric("Solv Kg/Mo", f"{t_slv_k/12:,.0f}")
     ck3.metric("Adh Kg/Mo", f"{t_adh_k/12:,.0f}")
     
-    # حساب القدرات بناءً على الوزن الحقيقي (GSM) الممزوج
     fx_max = (f_sq * w_gsm) / 1000000.0
     sl_max = (s_sq * w_gsm) / 1000000.0
     bg_max = (b_sq * w_gsm) / 1000000.0
