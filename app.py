@@ -164,7 +164,7 @@ with tabs[3]:
     cp2.metric("Total Monthly Payroll", f"SAR {payroll:,.0f}")
     cp3.metric("Annual Power Cost", f"SAR {t_pwr:,.0f}")
 
-# --- TAB 5 ---
+# --- TAB 5 (WITH "PRINT?" CHECKBOX LOGIC) ---
 with tabs[4]:
     st.markdown("### ⚙️ 1. Global Production Settings")
     c_set1, c_set2, c_set3, c_set4, c_set5 = st.columns(5)
@@ -176,27 +176,32 @@ with tabs[4]:
     d_ink = w_ink * (1.0 - (i_loss / 100.0))
     
     st.markdown("### 📋 2. Product Portfolio (Recipes)")
-    st.info(f"💡 **Material Densities:** BOPP ({d_b}) | PET ({d_pt}) | PE ({d_pe}) | ALU ({d_al})")
+    st.info(f"💡 **Tip:** Uncheck the 'Print' box for plain films. It will bypass ink costs and Flexo capacity!")
     
+    # تمت إضافة الصنف الجديد "Shrink Plain" وإضافة حقل "Print" (صح أو خطأ)
     init_data = [
-        {"Product": "1 Lyr", "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 35, "Price": 12.0},
-        {"Product": "2 Lyr", "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 55, "Price": 13.0},
-        {"Product": "3 Lyr", "L1": "PET", "M1": 12, "L2": "ALU", "M2": 7, "L3": "PE", "M3": 50, "Mix%": 10, "Price": 15.0}
+        {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 30, "Price": 12.0},
+        {"Product": "2 Lyr", "Print": True, "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 40, "Price": 13.0},
+        {"Product": "3 Lyr", "Print": True, "L1": "PET", "M1": 12, "L2": "ALU", "M2": 7, "L3": "PE", "M3": 50, "Mix%": 10, "Price": 15.0},
+        {"Product": "Shrink Plain", "Print": False, "L1": "PE", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 10.0}
     ]
     df_rec = st.data_editor(pd.DataFrame(init_data), num_rows="dynamic", use_container_width=True)
     
     w_gsm = 0.0; w_flexo_gsm = 0.0; w_rmc = 0.0; w_sp = 0.0; l_mix = 0.0
     t_ink_k = 0.0; t_slv_k = 0.0; t_adh_k = 0.0
-    t_pe_req_tons = 0.0  # متغير جديد لحساب احتياج الـ PE بالطن
+    t_pe_req_tons = 0.0  
     dets = []; m_nd = {}
     
     for _, r in df_rec.iterrows():
+        is_printed = r.get("Print", True) # قراءة ما إذا كان المنتج مطبوعاً أم سادة
+        
         g1 = r["M1"] * mat_db[r["L1"]]["d"]
         g2 = r["M2"] * mat_db[r["L2"]]["d"]
         g3 = r["M3"] * mat_db[r["L3"]]["d"]
-        flexo_g = g1 + d_ink 
         
-        # حساب وزن الـ PE في هذا المنتج فقط
+        # وزن الفلكسو يكون صفراً إذا كان المنتج "بدون طباعة"
+        flexo_g = (g1 + d_ink) if is_printed else 0.0 
+        
         pe_layer_gsm = 0.0
         if r["L1"] == "PE": pe_layer_gsm += g1
         if r["L2"] == "PE": pe_layer_gsm += g2
@@ -207,13 +212,18 @@ with tabs[4]:
         if r["M3"] > 0: lp += 1
         
         ag = lp * a_gsm
-        tg = g1 + g2 + g3 + d_ink + ag
+        
+        # لا نضيف وزن الحبر (d_ink) للوزن النهائي إذا كان سادة
+        tg = g1 + g2 + g3 + ag + (d_ink if is_printed else 0.0)
+        
         c1 = (g1/1000.0) * mat_db[r["L1"]]["p"]
         c2 = (g2/1000.0) * mat_db[r["L2"]]["p"]
         c3 = (g3/1000.0) * mat_db[r["L3"]]["p"]
         ca = (ag/1000.0) * adh_p
-        ci = (w_ink/1000.0) * ink_p
-        cs = (w_ink*0.5/1000.0) * solv_p
+        
+        # لا نحسب تكلفة الحبر والسولفنت إذا كان سادة
+        ci = ((w_ink/1000.0) * ink_p) if is_printed else 0.0
+        cs = ((w_ink*0.5/1000.0) * solv_p) if is_printed else 0.0
         
         cpk = (c1+c2+c3+ca+ci+cs)/(tg/1000.0) if tg > 0 else 0.0
         r_ton = t_tons * (r["Mix%"]/100.0)
@@ -222,11 +232,13 @@ with tabs[4]:
         if tg > 0:
             sq = (r_ton * 1000000.0) / tg
             if std_w > 0: l_len = sq / std_w
-            t_ink_k += (sq * w_ink) / 1000.0
-            t_slv_k += (sq * w_ink * 0.5) / 1000.0
-            t_adh_k += (sq * ag) / 1000.0
             
-            # تراكم أطنان الـ PE المطلوبة بناءً على نسبة وزنه في هذا المنتج
+            # نحسب استهلاك المصنع للحبر والسولفنت للمنتجات المطبوعة فقط
+            if is_printed:
+                t_ink_k += (sq * w_ink) / 1000.0
+                t_slv_k += (sq * w_ink * 0.5) / 1000.0
+                
+            t_adh_k += (sq * ag) / 1000.0
             t_pe_req_tons += r_ton * (pe_layer_gsm / tg)
             
             for lyr, mic in [("L1","M1"), ("L2","M2"), ("L3","M3")]:
@@ -242,7 +254,7 @@ with tabs[4]:
         if lp > 0: l_mix += mr
             
         dets.append({
-            "Product": r["Product"], "Tons": r_ton, 
+            "Product": r["Product"], "Printed": "✅" if is_printed else "❌", "Tons": r_ton, 
             "Length(m)": l_len, "GSM": tg, "Flexo GSM": flexo_g,
             "Cost/Kg": cpk, "Margin": r["Price"]-cpk
         })
@@ -251,7 +263,7 @@ with tabs[4]:
     df_dets = pd.DataFrame(dets)
     col_t1, col_t2 = st.columns([6, 4])
     with col_t1:
-        st.dataframe(df_dets[["Product", "Tons", "Length(m)", "GSM", "Flexo GSM", "Cost/Kg", "Margin"]].style.format({"Tons": "{:,.1f}", "Length(m)": "{:,.0f}", "GSM": "{:,.1f}", "Flexo GSM": "{:,.1f}", "Cost/Kg": "{:,.2f}", "Margin": "{:,.2f}"}), use_container_width=True)
+        st.dataframe(df_dets[["Product", "Printed", "Tons", "Length(m)", "GSM", "Flexo GSM", "Cost/Kg", "Margin"]].style.format({"Tons": "{:,.1f}", "Length(m)": "{:,.0f}", "GSM": "{:,.1f}", "Flexo GSM": "{:,.1f}", "Cost/Kg": "{:,.2f}", "Margin": "{:,.2f}"}), use_container_width=True)
     with col_t2:
         if m_nd:
             df_m_nd = pd.DataFrame([{"Material Roll": k, "Linear Meters": v} for k, v in m_nd.items()])
@@ -266,7 +278,7 @@ with tabs[4]:
     ck2.metric("🧪 Solv Kg/Mo", f"{t_slv_k/12:,.0f}")
     ck3.metric("🍯 Adh Kg/Mo", f"{t_adh_k/12:,.0f}")
     
-    fx_max = (f_sq * w_flexo_gsm) / 1000000.0 
+    fx_max = (f_sq * w_flexo_gsm) / 1000000.0 if w_flexo_gsm > 0 else 999999.0
     sl_max = (s_sq * w_gsm) / 1000000.0
     bg_max = (b_sq * w_gsm) / 1000000.0
     lm_max = (l_sq * w_gsm) / 1000000.0 / l_mix if l_mix > 0 else 999999.0
@@ -274,16 +286,18 @@ with tabs[4]:
     st.markdown("### 🚦 5. Exact Line Balancing (Tons & Meters)")
     cb1, cb2, cb3, cb4, cb5 = st.columns(5)
     
-    # التعديل العبقري: الإكسترودر يقارن قدرته مع "الـ PE المطلوب" فقط
     if t_pe_req_tons <= e_tons: cb1.success(f"Ext: {e_tons:,.0f} T | Need PE: {t_pe_req_tons:,.0f} T")
     else: cb1.error(f"Ext: {e_tons:,.0f} T | Need PE: {t_pe_req_tons:,.0f} T")
         
     if t_tons <= fx_max: cb2.success(f"Flx: {fx_max:,.0f} T | {f_lm/1000000:,.1f}M m")
     else: cb2.error(f"Flx: {fx_max:,.0f} T | {f_lm/1000000:,.1f}M m")
+    
     if t_tons <= lm_max: cb3.success(f"Lam: {lm_max:,.0f} T | {l_lm/1000000:,.1f}M m")
     else: cb3.error(f"Lam: {lm_max:,.0f} T | {l_lm/1000000:,.1f}M m")
+    
     if t_tons <= sl_max: cb4.success(f"Slt: {sl_max:,.0f} T | {s_lm/1000000:,.1f}M m")
     else: cb4.error(f"Slt: {sl_max:,.0f} T | {s_lm/1000000:,.1f}M m")
+    
     if t_tons <= bg_max: cb5.success(f"Bag: {bg_max:,.0f} T | {b_lm/1000000:,.1f}M m")
     else: cb5.error(f"Bag: {bg_max:,.0f} T | {b_lm/1000000:,.1f}M m")
 
