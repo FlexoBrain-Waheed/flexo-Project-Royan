@@ -41,25 +41,34 @@ with tabs[1]:
     m1, m2, m3 = st.columns(3)
     with m1:
         e_kg, e_kw, e_pr = st.number_input("Extruder Kg/h", 500.0), st.number_input("Extruder kW", 300.0), st.number_input("Extruder CAPEX", 5000000.0)
+        e_tons = (e_kg * net_hrs) / 1000.0
     with m2:
         f_s, f_w, f_e = st.number_input("Flexo Speed", 350.0), st.number_input("Flexo Width", 1.0), st.slider("Flexo Eff%", 40, 100, 80)
         f_k, f_pr = st.number_input("Flexo kW", 150.0), st.number_input("Flexo CAPEX", 8000000.0)
+        f_lm_max = net_hrs * 60.0 * f_s * (f_e/100.0)
     with m3:
         l_s, l_w, l_e = st.number_input("Lam Speed", 450.0), st.number_input("Lam Width", 1.0), st.slider("Lam Eff%", 40, 100, 75)
         l_k, l_pr = st.number_input("Lam kW", 80.0), st.number_input("Lam CAPEX", 1200000.0)
+        l_lm_max = net_hrs * 60.0 * l_s * (l_e/100.0)
+        
     m4, m5 = st.columns(2)
     with m4:
         s_s, s_w, s_e = st.number_input("Slit Speed", 400.0), st.number_input("Slit Width", 1.0), st.slider("Slit Eff%", 40, 100, 50)
         s_k, s_pr = st.number_input("Slit kW", 40.0), st.number_input("Slit CAPEX", 800000.0)
+        s_lm_max = net_hrs * 60.0 * s_s * (s_e/100.0)
     with m5:
         b_q, b_s, b_e = st.number_input("Bag Mach Qty", 5), st.number_input("Bag Speed m/m", 75.0), st.slider("Bag Eff%", 40, 100, 85)
         b_k, b_pr = st.number_input("Bag kW Total", 75.0), st.number_input("Bag CAPEX", 500000.0)
+        b_lm_max = net_hrs * 60.0 * b_s * b_q * (b_e/100.0)
 
     st.markdown("### 2. Utilities")
     u1, u2, u3 = st.columns(3)
     hng_pr, hng_dep_y = u1.number_input("Hangar CAPEX", 4000000.0), u1.number_input("Hangar Depr Yrs", 25.0)
     chl_k, chl_pr, chl_dep_y = u2.number_input("Chiller kW", 50.0), u2.number_input("Chiller CAPEX", 500000.0), u2.number_input("Chiller Depr Yrs", 10.0)
     cmp_k, cmp_pr, cmp_dep_y = u3.number_input("Compressor kW", 30.0), u3.number_input("Compressor CAPEX", 250000.0), u3.number_input("Comp. Depr Yrs", 10.0)
+    
+    chl_pc = net_hrs * chl_k * kw_p
+    cmp_pc = net_hrs * cmp_k * kw_p
     
     mac_dep_y = st.number_input("Machines Depreciation Yrs", 10.0)
     dep_e, dep_f, dep_l, dep_s, dep_b = e_pr/mac_dep_y, f_pr/mac_dep_y, l_pr/mac_dep_y, s_pr/mac_dep_y, b_pr/mac_dep_y
@@ -73,6 +82,8 @@ with tabs[2]:
     pl_pr, pl_lf = cc1.number_input("Plate SAR", 2500.0), cc1.number_input("Plate Life (m)", 400000.0)
     an_pr, an_lf = cc1.number_input("Anilox SAR", 15000.0), cc1.number_input("Anilox Life(M)", 200.0)
     bl_pr, bl_qt, bl_lf = cc2.number_input("Blade SAR/m", 12.0), cc2.number_input("Blade m/Job", 21.0), cc2.number_input("Blade Life(m)", 33000.0)
+    # 🌟 التعديل: إضافة es_pr الذي تسبب في الخطأ
+    es_pr = cc2.number_input("EndSeal SAR", 150.0)
     tp_pr, tp_qt = cc3.number_input("Tape SAR/m²", 85.0), cc3.number_input("Tape m²/Job", 6.0)
 
 # --- TAB 4 ---
@@ -90,7 +101,7 @@ with tabs[4]:
     std_w, w_ink, i_loss, a_gsm = c_s1.number_input("Web Width (m)", 1.0), c_s2.number_input("Wet Ink GSM", 5.0), c_s3.number_input("Ink Loss%", 40.0), c_s4.number_input("Adh GSM", 1.8)
     d_ink = w_ink * (1.0 - (i_loss/100.0))
     
-    st.markdown("### 📋 2. Product Portfolio (Recipes)")
+    st.markdown("### 📋 2. Product Portfolio")
     init_data = [
         {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 13.0},
         {"Product": "2 Lyr", "Print": True, "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 25, "Price": 13.0},
@@ -119,7 +130,7 @@ with tabs[4]:
         
         g1, g2, g3 = r["M1"]*mat_db[str(r["L1"])]["d"], r["M2"]*mat_db[str(r["L2"])]["d"], r["M3"]*mat_db[str(r["L3"])]["d"]
         ag, tg = lp * a_gsm, g1 + g2 + g3 + (lp*a_gsm) + (d_ink if is_printed else 0)
-        c_mat_kg = ((g1/1000.0*mat_db[str(r["L1"])]["p"]) + (g2/1000.0*mat_db[str(r["L2"])]["p"]) + (g3/1000.0*mat_db[str(r["L3"])]["p"]) + (ag/1000.0*adh_p) + (w_ink/1000.0*ink_p if is_printed else 0) + (w_ink*0.5/1000.0*solv_p if is_printed else 0))/(tg/1000.0)
+        c_mat_kg = ((g1/1000.0*mat_db[str(r["L1"])]["p"]) + (g2/1000.0*mat_db[str(r["L2"])]["p"]) + (g3/1000.0*mat_db[str(r["L3"])]["p"]) + (ag/1000.0*adh_p) + (w_ink/1000.0*ink_p if is_printed else 0) + (w_ink*0.5/1000.0*solv_p if is_printed else 0))/(tg/1000.0) if tg>0 else 0
         
         l_len = 0.0
         if tg > 0:
@@ -150,31 +161,36 @@ with tabs[4]:
     
     st.markdown("### 📊 3. Full Breakdown (SAR/Kg)")
     df_f = pd.DataFrame(dets)
-    # 🌟 الإصلاح: تطبيق التنسيق على الأعمدة الرقمية فقط لمنع خطأ ValueError
     num_cols = ["Tons", "MatCost", "Extrdr", "Flexo", "Lam", "Slit", "BagMk", "OH", "TotalCost", "Price", "Profit"]
     st.dataframe(df_f[["Product"] + num_cols].style.format({c: "{:,.2f}" for c in num_cols}), use_container_width=True)
 
 # --- TAB 6 & 7 ---
-a_rm, total_costs = sum(d['MatCost']*d['Tons']*1000 for d in dets), p_e + p_f + p_l + p_s + p_b + p_o
-tot_rev, n_prof = sum(d['Price']*d['Tons']*1000 for d in dets), sum(d['Price']*d['Tons']*1000 for d in dets) - (a_rm + p_e + p_f + p_l + p_s + p_b + p_o)
+total_rev = sum(d['Price']*d['Tons']*1000 for d in dets)
+total_rm_cost = sum(d['MatCost']*d['Tons']*1000 for d in dets)
+total_operating_costs = p_e + p_f + p_l + p_s + p_b + p_o
+net_profit_annual = total_rev - (total_rm_cost + total_operating_costs)
 
 with tabs[5]:
     st.markdown("### 📈 Plant Financials")
     f1, f2, f3 = st.columns(3)
-    f1.metric("Gross Revenue", f"SAR {tot_rev:,.0f}"), f2.metric("Total OPEX", f"SAR {a_rm + total_costs - ann_dep:,.0f}"), f3.metric("Net Profit", f"SAR {n_prof:,.0f}")
+    f1.metric("Gross Revenue", f"SAR {total_rev:,.0f}")
+    f2.metric("Total OPEX & Materials", f"SAR {total_rm_cost + total_operating_costs:,.0f}")
+    f3.metric("Net Profit", f"SAR {net_profit_annual:,.0f}")
     
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
         wb = w.book
-        title_f, head_f, num_f, pct_f = wb.add_format({'bold':True,'font_size':14,'bg_color':'#002060','font_color':'white','align':'center'}), wb.add_format({'bold':True,'bg_color':'#4F81BD','font_color':'white','border':1}), wb.add_format({'num_format':'#,##0.00','border':1}), wb.add_format({'num_format':'0.00%','border':1})
+        title_f = wb.add_format({'bold':True,'font_size':14,'bg_color':'#002060','font_color':'white','align':'center'})
+        head_f = wb.add_format({'bold':True,'bg_color':'#4F81BD','font_color':'white','border':1})
+        num_f = wb.add_format({'num_format':'#,##0.00','border':1})
         ws = wb.add_worksheet('Summary')
-        ws.merge_range('A1:G1', 'Royan Plant Financial Teaser', title_f)
-        ws.write_row(2, 0, ['Investment', t_capex, 'Revenue', tot_rev, 'Net Profit', n_prof], head_f)
+        ws.merge_range('A1:G1', 'Royan Plant Financial Summary', title_f)
+        ws.write_row(2, 0, ['Investment', t_capex, 'Revenue', total_rev, 'Net Profit', net_profit_annual], head_f)
         ws.write(5, 0, 'Detailed Product Analysis', head_f)
         ws.write_row(6, 0, ['Product','Tons','Mat Cost','Mfg Cost','Total Cost','Price','Margin %'], head_f)
         for i, d in enumerate(dets):
             ws.write_row(7+i, 0, [d['Product'], d['Tons'], d['MatCost'], d['TotalCost']-d['MatCost'], d['TotalCost'], d['Price'], (d['Profit']/d['Price'] if d['Price']>0 else 0)], num_f)
-    st.download_button("📥 Download Summary", buf.getvalue(), "Royan_Summary.xlsx", use_container_width=True)
+    st.download_button("📥 Download Summary Excel", buf.getvalue(), "Royan_Summary.xlsx", use_container_width=True)
 
 with tabs[6]:
     st.header("Commercial Offer")
