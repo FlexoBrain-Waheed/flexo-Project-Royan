@@ -89,7 +89,7 @@ with tabs[1]:
     with u1:
         st.subheader("Building (Hangar)")
         hng_pr = st.number_input("Hangar CAPEX", 4000000.0)
-        hng_dep_y = st.number_input("Hangar Depr Yrs", 10.0)
+        hng_dep_y = st.number_input("Hangar Depr Yrs", 25.0)
     with u2:
         st.subheader("Chiller (10 Units)")
         chl_k = st.number_input("Chiller kW", 50.0)
@@ -131,13 +131,17 @@ with tabs[1]:
 
 # --- TAB 3 ---
 with tabs[2]:
+    st.subheader("🛠️ Production Consumables")
     cc1, cc2, cc3 = st.columns(3)
-    an_pr = cc1.number_input("Anilox SAR", 15000.0)
+    pl_pr = cc1.number_input("Plate Cost (Cliché) / Job", 2500.0)
     an_lf = cc1.number_input("Anilox Life(M)", 200.0)
+    an_pr = cc1.number_input("Anilox SAR", 15000.0)
+    
     bl_pr = cc2.number_input("Blade SAR/m", 12.0)
     bl_qt = cc2.number_input("Blade m/Job", 21.0)
     es_pr = cc2.number_input("EndSeal SAR", 150.0)
     bl_lf = cc2.number_input("Blade/Seal Life(m)", 33000.0)
+    
     tp_pr = cc3.number_input("Tape SAR/m²", 85.0)
     tp_qt = cc3.number_input("Tape m²/Job", 6.0)
 
@@ -180,7 +184,6 @@ with tabs[4]:
     st.markdown("### 📋 2. Product Portfolio (Recipes)")
     st.info(f"💡 **Tip:** Uncheck the 'Print' box for plain films. It will bypass ink costs and Flexo capacity!")
     
-    # تم تعديل سعر الـ 1 Lyr ليصبح 13، وأكياس التسوق المطبوعة لتصبح 10
     init_data = [
         {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 13.0},
         {"Product": "2 Lyr", "Print": True, "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 25, "Price": 13.0},
@@ -320,8 +323,9 @@ ln_m = esm / std_w if std_w > 0 else esm
 
 a_an = (ln_m / (an_lf*1000000.0)) * an_pr * 8.0 if an_lf > 0 else 0.0
 a_bl_es = (ln_m / bl_lf) * (bl_qt*bl_pr + es_pr*8.0) if bl_lf > 0 else 0.0
+a_pl = (j_mo * 12.0) * pl_pr
 a_tp = (j_mo * 12.0) * tp_qt * tp_pr
-a_cons = a_an + a_bl_es + a_tp
+a_cons = a_an + a_bl_es + a_pl + a_tp
 
 a_hr = (payroll + adm_exp) * 12.0
 t_opex = a_rm + a_cons + a_hr + t_pwr + ann_dep
@@ -347,60 +351,137 @@ with tabs[5]:
     )
     st.plotly_chart(fig_pie, use_container_width=True)
     
+    # ---------------------------------------------------------
+    # 🪄 محرك الإكسيل المتقدم (صفحة واحدة احترافية One-Pager)
+    # ---------------------------------------------------------
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
         wb = w.book
-        h_fmt = wb.add_format({'bold':True, 'bg_color':'#1F4E78', 'font_color':'white', 'border':1, 'align':'center'})
-        l_fmt = wb.add_format({'bold':True, 'border':1})
-        c_fmt = wb.add_format({'num_format':'#,##0.00', 'border':1})
-        n_fmt = wb.add_format({'num_format':'#,##0', 'border':1})
-        p_fmt = wb.add_format({'num_format':'0.00%', 'border':1})
         
-        ws1 = wb.add_worksheet('1. Master Dashboard')
-        ws1.set_column('A:B', 35)
-        ws1.write_row('A1', ['Metric (المؤشر)', 'Value (القيمة)'], h_fmt)
-        ws1.write('A2', 'Target Production (Tons) | الإنتاج المستهدف', l_fmt); ws1.write_number('B2', t_tons, n_fmt)
-        ws1.write('A3', 'Gross Revenue (SAR) | إجمالي الإيرادات', l_fmt); ws1.write_number('B3', tot_rev, c_fmt)
-        ws1.write('A4', 'Total OPEX (SAR) | إجمالي تكاليف التشغيل', l_fmt); ws1.write_number('B4', t_opex, c_fmt)
-        ws1.write('A5', 'Net Profit (SAR) | صافي الربح', l_fmt); ws1.write_formula('B5', '=B3-B4', c_fmt)
-        ws1.write('A6', 'Total CAPEX (SAR) | إجمالي الاستثمار', l_fmt); ws1.write_number('B6', t_capex, c_fmt)
-        ws1.write('A7', 'ROI (%) | العائد على الاستثمار', l_fmt); ws1.write_formula('B7', '=IF(B6>0, B5/B6, 0)', p_fmt)
-        ws1.write('A8', 'Payback Period (Yrs) | فترة الاسترداد', l_fmt); ws1.write_formula('B8', '=IF(B5>0, B6/B5, 0)', c_fmt)
+        # --- التنسيقات الاحترافية (Formats) ---
+        title_fmt = wb.add_format({'bold': True, 'font_size': 16, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#002060', 'font_color': 'white', 'border': 1})
+        head_fmt = wb.add_format({'bold': True, 'bg_color': '#4F81BD', 'font_color': 'white', 'border': 1, 'align': 'left'})
+        sub_head_fmt = wb.add_format({'bold': True, 'bg_color': '#DCE6F1', 'border': 1, 'align': 'left'})
+        txt_fmt = wb.add_format({'border': 1, 'align': 'left'})
+        num_fmt = wb.add_format({'num_format': '#,##0', 'border': 1, 'align': 'right'})
+        cur_fmt = wb.add_format({'num_format': '#,##0.00', 'border': 1, 'align': 'right'})
+        pct_fmt = wb.add_format({'num_format': '0.00%', 'border': 1, 'align': 'right'})
+        highlight_fmt = wb.add_format({'bold': True, 'bg_color': '#E2EFDA', 'num_format': '#,##0.00', 'border': 1, 'align': 'right'})
+        profit_fmt = wb.add_format({'bold': True, 'bg_color': '#C6EFCE', 'font_color': '#006100', 'num_format': '#,##0', 'border': 1, 'align': 'right'})
         
-        ws2 = wb.add_worksheet('2. CAPEX (الأصول)')
-        ws2.set_column('A:B', 25); ws2.set_column('C:C', 20)
-        ws2.write_row('A1', ['Category (الفئة)', 'Item (البند)', 'Cost (SAR)'], h_fmt)
-        cx_data = [
-            ['Production Line', 'Extruder', e_pr], ['Production Line', 'Flexo CI', f_pr],
-            ['Production Line', 'Lamination', l_pr], ['Production Line', 'Slitter', s_pr],
-            ['Production Line', 'Bag Making', b_pr], ['Facilities', 'Building (Hangar)', hng_pr],
-            ['Facilities', 'Chiller (10 Units)', chl_pr], ['Facilities', 'Air Compressor', cmp_pr]
+        # --- إنشاء الصفحة الموحدة ---
+        ws = wb.add_worksheet('Executive Financial Summary')
+        ws.set_column('A:A', 40) # عمود الوصف
+        ws.set_column('B:E', 20) # أعمدة الأرقام
+        ws.hide_gridlines(2) # إخفاء الخطوط لتبدو كتقرير احترافي
+        
+        # العنوان الرئيسي
+        ws.merge_range('A1:E2', 'NexFlexo Plant - Executive Financial & Operational Summary', title_fmt)
+        
+        current_row = 3
+        
+        # ==========================================
+        # 1. قسم الاستثمار برأس المال (CAPEX)
+        # ==========================================
+        ws.write(current_row, 0, '1. CAPITAL INVESTMENT (الاستثمار والأصول)', head_fmt)
+        ws.write(current_row, 1, 'SAR', head_fmt); current_row += 1
+        
+        capex_items = [
+            ('Extruder Line', e_pr), ('Flexo CI Printing Line', f_pr), ('Lamination Line', l_pr),
+            ('Slitter Machine', s_pr), ('Bag Making Machines', b_pr), ('Building (Hangar)', hng_pr),
+            ('Chiller & Utilities', chl_pr + cmp_pr)
         ]
-        for i, (c, it, v) in enumerate(cx_data, 1):
-            ws2.write(i, 0, c, l_fmt); ws2.write(i, 1, it, l_fmt); ws2.write_number(i, 2, v, c_fmt)
-        ws2.write(len(cx_data)+1, 1, 'TOTAL CAPEX | الإجمالي', h_fmt)
-        ws2.write_formula(len(cx_data)+1, 2, f'=SUM(C2:C{len(cx_data)+1})', h_fmt)
+        start_capex = current_row + 1
+        for name, val in capex_items:
+            ws.write(current_row, 0, name, txt_fmt)
+            ws.write(current_row, 1, val, cur_fmt)
+            current_row += 1
+            
+        wc_req = (a_rm/12.0 + (t_ink_k*ink_p + t_slv_k*solv_p + t_adh_k*adh_p)/12.0 + t_pwr/12.0 + payroll + adm_exp + a_cons/12.0) * 3
+        ws.write(current_row, 0, 'Working Capital (كاش لتشغيل 3 أشهر)', sub_head_fmt)
+        ws.write(current_row, 1, wc_req, cur_fmt); current_row += 1
         
-        ws3 = wb.add_worksheet('3. Working Capital')
-        ws3.set_column('A:A', 35); ws3.set_column('B:D', 22)
-        ws3.write_row('A1', ['Item (البند)', 'Monthly Cost (شهري)', 'Months (تغطية)', 'Total Required (التمويل)'], h_fmt)
-        wc_data = [
-            ['Raw Materials (مواد خام)', a_rm/12.0], 
-            ['Chemicals (أحبار وغراء)', (t_ink_k*ink_p + t_slv_k*solv_p + t_adh_k*adh_p)/12.0],
-            ['Power (الكهرباء)', t_pwr/12.0], 
-            ['Payroll & Admin (رواتب وإدارة)', payroll + adm_exp], 
-            ['Consumables (مستهلكات)', a_cons/12.0]
+        ws.write(current_row, 0, 'TOTAL PROJECT INVESTMENT (إجمالي الاستثمار)', sub_head_fmt)
+        ws.write_formula(current_row, 1, f'=SUM(B{start_capex}:B{current_row})', highlight_fmt)
+        current_row += 2
+        
+        # ==========================================
+        # 2. قسم المواد الخام (Materials)
+        # ==========================================
+        ws.write(current_row, 0, '2. RAW MATERIALS PRICING (أسعار المواد)', head_fmt)
+        ws.write_row(current_row, 1, ['SAR / Kg', '', '', ''], head_fmt); current_row += 1
+        
+        mat_items = [('BOPP', p_b), ('PET', p_pt), ('PE', p_pe), ('ALU', p_al), ('Ink', ink_p), ('Solvent', solv_p), ('Adhesive', adh_p)]
+        for name, val in mat_items:
+            ws.write(current_row, 0, name, txt_fmt)
+            ws.write(current_row, 1, val, cur_fmt)
+            current_row += 1
+        current_row += 1
+
+        # ==========================================
+        # 3. قسم تحليل المصاريف السنوية (OPEX)
+        # ==========================================
+        ws.write(current_row, 0, '3. ANNUAL OPERATING EXPENSES (مصاريف التشغيل السنوية)', head_fmt)
+        ws.write_row(current_row, 1, ['SAR / Year', '', '', ''], head_fmt); current_row += 1
+        
+        opex_start = current_row + 1
+        opex_items = [
+            ('Raw Materials & Plastics', a_rm), 
+            ('Chemicals (Ink, Solv, Glue)', (t_ink_k*ink_p + t_slv_k*solv_p + t_adh_k*adh_p)),
+            ('Consumables & Plates', a_cons),
+            ('Power Consumption', t_pwr),
+            ('Payroll & HR', payroll * 12.0),
+            ('Admin & General Expenses', adm_exp * 12.0),
+            ('Annual Depreciation (إهلاك دفتري)', ann_dep)
         ]
-        for i, (it, v) in enumerate(wc_data, 1):
-            ws3.write(i, 0, it, l_fmt); ws3.write_number(i, 1, v, c_fmt)
-            ws3.write_number(i, 2, 3, n_fmt) 
-            ws3.write_formula(i, 3, f'=B{i+1}*C{i+1}', c_fmt)
-        ws3.write(len(wc_data)+1, 0, 'TOTAL WORKING CAPITAL', h_fmt)
-        ws3.write_formula(len(wc_data)+1, 3, f'=SUM(D2:D{len(wc_data)+1})', h_fmt)
+        for name, val in opex_items:
+            ws.write(current_row, 0, name, txt_fmt)
+            ws.write(current_row, 1, val, cur_fmt)
+            current_row += 1
+            
+        ws.write(current_row, 0, 'TOTAL ANNUAL OPEX (إجمالي المصاريف)', sub_head_fmt)
+        ws.write_formula(current_row, 1, f'=SUM(B{opex_start}:B{current_row})', highlight_fmt)
+        current_row += 2
+
+        # ==========================================
+        # 4. قسم التكلفة وسعر البيع بناءً على 15% (القسم الذهبي)
+        # ==========================================
+        ws.write(current_row, 0, '4. PRICING STRATEGY & 15% TARGET MARGIN (استراتيجية التسعير)', head_fmt)
+        ws.write_row(current_row, 1, ['Target Tons', 'Cost / Kg', 'Target Price (+15%)', 'Actual Price Set'], head_fmt)
+        current_row += 1
         
-        df_dets.to_excel(w, index=False, sheet_name='4. Product Mix')
+        for d in dets:
+            ws.write(current_row, 0, d['Product'], txt_fmt)
+            ws.write(current_row, 1, d['Tons'], num_fmt)               # Column B: Tons
+            ws.write(current_row, 2, d['Total Cost/Kg'], cur_fmt)      # Column C: Cost/Kg
+            # معادلة الإكسيل: التكلفة * 1.15
+            ws.write_formula(current_row, 3, f'=C{current_row+1}*1.15', highlight_fmt) # Column D: Target Price
+            ws.write(current_row, 4, d['Margin'] + d['Total Cost/Kg'], cur_fmt) # Column E: Actual Price
+            current_row += 1
+        current_row += 1
+
+        # ==========================================
+        # 5. الخلاصة المبيعات والأرباح (Bottom Line)
+        # ==========================================
+        ws.write(current_row, 0, '5. FINANCIAL SUMMARY (الخلاصة المالية السنوية)', head_fmt)
+        ws.write_row(current_row, 1, ['SAR', '', '', ''], head_fmt); current_row += 1
         
-    st.download_button("📥 Download Advanced Interactive Excel", buf.getvalue(), "NexFlexo_Pro.xlsx", "application/vnd.ms-excel", use_container_width=True)
+        ws.write(current_row, 0, 'Gross Annual Revenue (إجمالي الإيرادات)', sub_head_fmt)
+        ws.write(current_row, 1, tot_rev, cur_fmt); current_row += 1
+        
+        ws.write(current_row, 0, 'Total Annual Costs (إجمالي التكاليف)', sub_head_fmt)
+        ws.write(current_row, 1, t_opex, cur_fmt); current_row += 1
+        
+        ws.write(current_row, 0, 'NET ANNUAL PROFIT (صافي الربح)', sub_head_fmt)
+        ws.write_formula(current_row, 1, f'=B{current_row-1}-B{current_row}', profit_fmt); current_row += 1
+        
+        ws.write(current_row, 0, 'Return on Investment (ROI)', txt_fmt)
+        ws.write_formula(current_row, 1, f'=B{current_row}/B{start_capex-1+len(capex_items)+2}', pct_fmt); current_row += 1 # Net Profit / Total Investment
+        
+        ws.write(current_row, 0, 'Payback Period (Years)', txt_fmt)
+        ws.write_formula(current_row, 1, f'=B{start_capex-1+len(capex_items)+2}/B{current_row-1}', cur_fmt)
+
+    st.download_button("📥 Download Executive Summary Excel", buf.getvalue(), "NexFlexo_Executive_Summary.xlsx", "application/vnd.ms-excel", use_container_width=True)
 
 with tabs[6]:
     ct1, ct2, ct3 = st.columns(3)
