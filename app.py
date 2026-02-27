@@ -1,7 +1,7 @@
 import streamlit as st, pandas as pd, io, plotly.express as px
 
-st.set_page_config(page_title="NexFlexo Plant", layout="wide")
-st.title("🏭 NexFlexo Smart Plant Simulator")
+st.set_page_config(page_title="Royan Plant", layout="wide")
+st.title("🏭 Royan Smart Plant Simulator")
 
 tabs = st.tabs(["1. Materials", "2. Production & Chart", "3. Consumables", "4. HR & OPEX", "5. Recipes", "6. P&L", "7. Commercial"])
 
@@ -377,7 +377,7 @@ with tabs[5]:
         ws.set_column('B:E', 20) 
         ws.hide_gridlines(2) 
         
-        ws.merge_range('A1:E2', 'NexFlexo Plant - Executive Financial & Operational Summary', title_fmt)
+        ws.merge_range('A1:E2', 'Royan Plant - Executive Financial & Operational Summary', title_fmt)
         
         current_row = 3
         
@@ -395,11 +395,12 @@ with tabs[5]:
             ws.write(current_row, 1, val, cur_fmt)
             current_row += 1
             
-        wc_req = (a_rm/12.0 + t_pwr/12.0 + payroll + adm_exp + a_cons/12.0) * 3
+        wc_req = ((t_opex - ann_dep) / 12.0) * 3
         ws.write(current_row, 0, 'Working Capital (كاش لتشغيل 3 أشهر)', sub_head_fmt)
         ws.write(current_row, 1, wc_req, cur_fmt); current_row += 1
         
         ws.write(current_row, 0, 'TOTAL PROJECT INVESTMENT (إجمالي الاستثمار)', sub_head_fmt)
+        capex_total_row_excel = current_row + 1
         ws.write_formula(current_row, 1, f'=SUM(B{start_capex}:B{current_row})', highlight_fmt)
         current_row += 2
         
@@ -432,6 +433,7 @@ with tabs[5]:
             current_row += 1
             
         ws.write(current_row, 0, 'TOTAL ANNUAL OPEX (إجمالي المصاريف)', sub_head_fmt)
+        opex_total_row_excel = current_row + 1
         ws.write_formula(current_row, 1, f'=SUM(B{opex_start}:B{current_row})', highlight_fmt)
         current_row += 2
 
@@ -452,21 +454,27 @@ with tabs[5]:
         ws.write_row(current_row, 1, ['SAR', '', '', ''], head_fmt); current_row += 1
         
         ws.write(current_row, 0, 'Gross Annual Revenue (إجمالي الإيرادات)', sub_head_fmt)
-        ws.write(current_row, 1, tot_rev, cur_fmt); current_row += 1
+        ws.write(current_row, 1, tot_rev, cur_fmt)
+        gross_rev_row_excel = current_row + 1
+        current_row += 1
         
         ws.write(current_row, 0, 'Total Annual Costs (إجمالي التكاليف)', sub_head_fmt)
-        ws.write_formula(current_row, 1, f'=B{current_row - 4 - len(dets) - 2}', cur_fmt); current_row += 1
+        ws.write_formula(current_row, 1, f'=B{opex_total_row_excel}', cur_fmt)
+        total_cost_row_excel = current_row + 1
+        current_row += 1
         
         ws.write(current_row, 0, 'NET ANNUAL PROFIT (صافي الربح)', sub_head_fmt)
-        ws.write_formula(current_row, 1, f'=B{current_row-2}-B{current_row-1}', profit_fmt); current_row += 1
+        ws.write_formula(current_row, 1, f'=B{gross_rev_row_excel}-B{total_cost_row_excel}', profit_fmt)
+        net_profit_row_excel = current_row + 1
+        current_row += 1
         
         ws.write(current_row, 0, 'Return on Investment (ROI)', txt_fmt)
-        ws.write_formula(current_row, 1, f'=B{current_row}/B{start_capex-1+len(capex_items)+2}', pct_fmt); current_row += 1 
+        ws.write_formula(current_row, 1, f'=B{net_profit_row_excel}/B{capex_total_row_excel}', pct_fmt); current_row += 1 
         
         ws.write(current_row, 0, 'Payback Period (Years)', txt_fmt)
-        ws.write_formula(current_row, 1, f'=B{start_capex-1+len(capex_items)+2}/B{current_row-1}', cur_fmt)
+        ws.write_formula(current_row, 1, f'=B{capex_total_row_excel}/B{net_profit_row_excel}', cur_fmt)
 
-    st.download_button("📥 Download Executive Summary Excel", buf.getvalue(), "NexFlexo_Executive_Summary.xlsx", "application/vnd.ms-excel", use_container_width=True)
+    st.download_button("📥 Download Executive Summary Excel", buf.getvalue(), "Royan_Executive_Summary.xlsx", "application/vnd.ms-excel", use_container_width=True)
 
 with tabs[6]:
     ct1, ct2, ct3 = st.columns(3)
@@ -483,4 +491,4 @@ with tabs[6]:
     mp = cq1.number_input("Margin %", 5, 100, 20)
     if st.button("Generate Offer"):
         fp = sc * (1.0 + (mp/100.0))
-        st.info(f"**To:** {cn}\n\n**Product:** {sr} ({sg:,.1f} g/m²)\n\n**Price/Kg:** SAR {fp:,.2f}\n\n*Waheed Waleed Malik, NexFlexo*")
+        st.info(f"**To:** {cn}\n\n**Product:** {sr} ({sg:,.1f} g/m²)\n\n**Price/Kg:** SAR {fp:,.2f}\n\n*Waheed Waleed Malik, Royan*")
