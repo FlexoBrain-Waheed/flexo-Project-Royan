@@ -10,7 +10,8 @@ with tabs[0]:
     c1, c2, c3, c4 = st.columns(4)
     p_b, d_b = c1.number_input("BOPP SAR", 6.0), c1.number_input("BOPP Den", 0.91)
     p_pt, d_pt = c2.number_input("PET SAR", 6.3), c2.number_input("PET Den", 1.40)
-    p_pe, d_pe = c3.number_input("PE SAR", 5.0), c3.number_input("PE Den", 0.92)
+    # تم تعديل سعر الـ PE إلى 3.7 ريال للكيلو (3700 للطن)
+    p_pe, d_pe = c3.number_input("PE SAR", 3.7), c3.number_input("PE Den", 0.92)
     p_al, d_al = c4.number_input("ALU SAR", 18.0), c4.number_input("ALU Den", 2.70)
     mat_db = {"BOPP":{"p":p_b,"d":d_b}, "PET":{"p":p_pt,"d":d_pt}, "PE":{"p":p_pe,"d":d_pe}, "ALU":{"p":p_al,"d":d_al}, "None":{"p":0.0,"d":0.0}}
     st.markdown("---")
@@ -400,7 +401,6 @@ with tabs[5]:
     st.download_button("📥 Download Advanced Interactive Excel", buf.getvalue(), "NexFlexo_Pro.xlsx", "application/vnd.ms-excel", use_container_width=True)
 
 with tabs[6]:
-    # التصحيح الأخير تم تطبيقه هنا (Total Cost/Kg بدلاً من Cost/Kg)
     ct1, ct2, ct3 = st.columns(3)
     ct1.metric("Turnover", f"SAR {tot_rev:,.0f}")
     ct2.metric("Asset Turn", f"{atr:.2f}x")
@@ -410,11 +410,8 @@ with tabs[6]:
     cn = cq1.text_input("Customer", "Valued Client")
     pl = [i["Product"] for i in dets]
     sr = cq2.selectbox("Product", pl)
-    
-    # تم تغييرها هنا لتفادي الخطأ السابق
     sc = next((i["Total Cost/Kg"] for i in dets if i["Product"] == sr), 0)
     sg = next((i["GSM"] for i in dets if i["Product"] == sr), 0)
-    
     mp = cq1.number_input("Margin %", 5, 100, 20)
     if st.button("Generate Offer"):
         fp = sc * (1.0 + (mp/100.0))
