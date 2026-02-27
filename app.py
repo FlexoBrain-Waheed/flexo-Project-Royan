@@ -15,7 +15,6 @@ with tabs[0]:
     mat_db = {"BOPP":{"p":p_b,"d":d_b}, "PET":{"p":p_pt,"d":d_pt}, "PE":{"p":p_pe,"d":d_pe}, "ALU":{"p":p_al,"d":d_al}, "None":{"p":0.0,"d":0.0}}
     st.markdown("---")
     ci1, ci2, ci3 = st.columns(3)
-    # تم تعديل سعر الحبر إلى 14 ريال
     ink_p = ci1.number_input("Ink/Kg", 14.0)
     solv_p = ci2.number_input("Solvent/Kg", 6.0)
     adh_p = ci3.number_input("Adhesive/Kg", 12.0)
@@ -181,12 +180,13 @@ with tabs[4]:
     st.markdown("### 📋 2. Product Portfolio (Recipes)")
     st.info(f"💡 **Tip:** Uncheck the 'Print' box for plain films. It will bypass ink costs and Flexo capacity!")
     
+    # تم تعديل سعر الـ 1 Lyr ليصبح 13، وأكياس التسوق المطبوعة لتصبح 10
     init_data = [
-        {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 12.0},
+        {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 13.0},
         {"Product": "2 Lyr", "Print": True, "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 25, "Price": 13.0},
         {"Product": "3 Lyr", "Print": True, "L1": "PET", "M1": 12, "L2": "ALU", "M2": 7, "L3": "PE", "M3": 50, "Mix%": 5, "Price": 15.0},
         {"Product": "Shrink Plain", "Print": False, "L1": "PE", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 30, "Price": 5.0},
-        {"Product": "Printed Shop. Bag", "Print": True, "L1": "PE", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 9.0}
+        {"Product": "Printed Shop. Bag", "Print": True, "L1": "PE", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 10.0}
     ]
     df_rec = st.data_editor(pd.DataFrame(init_data), num_rows="dynamic", use_container_width=True)
     
