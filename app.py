@@ -270,7 +270,6 @@ with tabs[4]:
     df_dets = pd.DataFrame(dets)
     col_t1, col_t2 = st.columns([6, 4])
     with col_t1:
-        # تمت إضافة عمود التكلفة الصافية للمواد الخام وعمود التكلفة الإجمالية
         st.dataframe(df_dets[["Product", "Printed", "Tons", "Length(m)", "GSM", "RM Cost/Kg", "Total Cost/Kg", "Margin"]].style.format({"Tons": "{:,.1f}", "Length(m)": "{:,.0f}", "GSM": "{:,.1f}", "RM Cost/Kg": "{:,.2f}", "Total Cost/Kg": "{:,.2f}", "Margin": "{:,.2f}"}), use_container_width=True)
     with col_t2:
         if m_nd:
@@ -401,6 +400,7 @@ with tabs[5]:
     st.download_button("📥 Download Advanced Interactive Excel", buf.getvalue(), "NexFlexo_Pro.xlsx", "application/vnd.ms-excel", use_container_width=True)
 
 with tabs[6]:
+    # التصحيح الأخير تم تطبيقه هنا (Total Cost/Kg بدلاً من Cost/Kg)
     ct1, ct2, ct3 = st.columns(3)
     ct1.metric("Turnover", f"SAR {tot_rev:,.0f}")
     ct2.metric("Asset Turn", f"{atr:.2f}x")
@@ -410,8 +410,11 @@ with tabs[6]:
     cn = cq1.text_input("Customer", "Valued Client")
     pl = [i["Product"] for i in dets]
     sr = cq2.selectbox("Product", pl)
-    sc = next((i["Cost/Kg"] for i in dets if i["Product"] == sr), 0)
+    
+    # تم تغييرها هنا لتفادي الخطأ السابق
+    sc = next((i["Total Cost/Kg"] for i in dets if i["Product"] == sr), 0)
     sg = next((i["GSM"] for i in dets if i["Product"] == sr), 0)
+    
     mp = cq1.number_input("Margin %", 5, 100, 20)
     if st.button("Generate Offer"):
         fp = sc * (1.0 + (mp/100.0))
