@@ -133,7 +133,6 @@ with tabs[1]:
 with tabs[2]:
     st.subheader("🛠️ Production Consumables")
     cc1, cc2, cc3 = st.columns(3)
-    # 🌟 التعديل هنا: إضافة سعر الكليشة وعمرها الافتراضي بالمتر الطولي
     pl_pr = cc1.number_input("Plate SAR (Cliché)", 2500.0)
     pl_lf = cc1.number_input("Plate Life (m)", 400000.0)
     an_pr = cc1.number_input("Anilox SAR", 15000.0)
@@ -325,10 +324,7 @@ ln_m = esm / std_w if std_w > 0 else esm
 
 a_an = (ln_m / (an_lf*1000000.0)) * an_pr * 8.0 if an_lf > 0 else 0.0
 a_bl_es = (ln_m / bl_lf) * (bl_qt*bl_pr + es_pr*8.0) if bl_lf > 0 else 0.0
-
-# 🌟 التعديل العبقري: حساب الكليشة بناءً على الأمتار المطبوعة الفعيلة بدلاً من عدد الطلبيات
 a_pl = (t_flexo_lm_req / pl_lf) * pl_pr if pl_lf > 0 else 0.0
-
 a_tp = (j_mo * 12.0) * tp_qt * tp_pr
 a_cons = a_an + a_bl_es + a_pl + a_tp
 
@@ -340,6 +336,9 @@ pbk = t_capex / n_prof if n_prof > 0 else 0.0
 atr = tot_rev / t_capex if t_capex > 0 else 0.0
 roi = (n_prof / t_capex) * 100.0 if t_capex > 0 else 0.0
 
+chem_annual_cost = (t_ink_k*ink_p + t_slv_k*solv_p + t_adh_k*adh_p)
+plastic_annual_cost = a_rm - chem_annual_cost
+
 with tabs[5]:
     st.markdown("### 📈 Overall Plant Financials")
     cr1, cr2, cr3, cr4 = st.columns(4)
@@ -350,8 +349,8 @@ with tabs[5]:
     st.info(f"ℹ️ Total Cost includes Annual Depreciation of SAR {ann_dep:,.0f}")
     
     fig_pie = px.pie(
-        names=["Raw Materials", "Consumables", "HR & Admin", "Power", "Depreciation", "Net Profit"],
-        values=[a_rm, a_cons, a_hr, t_pwr, ann_dep, n_prof if n_prof > 0 else 0],
+        names=["Plastics", "Chemicals", "Consumables", "HR & Admin", "Power", "Depreciation", "Net Profit"],
+        values=[plastic_annual_cost, chem_annual_cost, a_cons, a_hr, t_pwr, ann_dep, n_prof if n_prof > 0 else 0],
         title="📊 Revenue Breakdown & Cost Allocation (SAR)", hole=0.4
     )
     st.plotly_chart(fig_pie, use_container_width=True)
@@ -371,10 +370,10 @@ with tabs[5]:
         cur_fmt = wb.add_format({'num_format': '#,##0.00', 'border': 1, 'align': 'right'})
         pct_fmt = wb.add_format({'num_format': '0.00%', 'border': 1, 'align': 'right'})
         highlight_fmt = wb.add_format({'bold': True, 'bg_color': '#E2EFDA', 'num_format': '#,##0.00', 'border': 1, 'align': 'right'})
-        profit_fmt = wb.add_format({'bold': True, 'bg_color': '#C6EFCE', 'font_color': '#006100', 'num_format': '#,##0', 'border': 1, 'align': 'right'})
+        profit_fmt = wb.add_format({'bold': True, 'bg_color': '#C6EFCE', 'font_color': '#006100', 'num_format': '#,##0.00', 'border': 1, 'align': 'right'})
         
         ws = wb.add_worksheet('Executive Financial Summary')
-        ws.set_column('A:A', 40)
+        ws.set_column('A:A', 40) 
         ws.set_column('B:E', 20) 
         ws.hide_gridlines(2) 
         
@@ -396,7 +395,7 @@ with tabs[5]:
             ws.write(current_row, 1, val, cur_fmt)
             current_row += 1
             
-        wc_req = (a_rm/12.0 + (t_ink_k*ink_p + t_slv_k*solv_p + t_adh_k*adh_p)/12.0 + t_pwr/12.0 + payroll + adm_exp + a_cons/12.0) * 3
+        wc_req = (a_rm/12.0 + t_pwr/12.0 + payroll + adm_exp + a_cons/12.0) * 3
         ws.write(current_row, 0, 'Working Capital (كاش لتشغيل 3 أشهر)', sub_head_fmt)
         ws.write(current_row, 1, wc_req, cur_fmt); current_row += 1
         
@@ -419,8 +418,8 @@ with tabs[5]:
         
         opex_start = current_row + 1
         opex_items = [
-            ('Raw Materials & Plastics', a_rm), 
-            ('Chemicals (Ink, Solv, Glue)', (t_ink_k*ink_p + t_slv_k*solv_p + t_adh_k*adh_p)),
+            ('Raw Materials (Plastics Only)', plastic_annual_cost), 
+            ('Chemicals (Ink, Solv, Glue)', chem_annual_cost),
             ('Consumables & Plates', a_cons),
             ('Power Consumption', t_pwr),
             ('Payroll & HR', payroll * 12.0),
@@ -456,10 +455,10 @@ with tabs[5]:
         ws.write(current_row, 1, tot_rev, cur_fmt); current_row += 1
         
         ws.write(current_row, 0, 'Total Annual Costs (إجمالي التكاليف)', sub_head_fmt)
-        ws.write(current_row, 1, t_opex, cur_fmt); current_row += 1
+        ws.write_formula(current_row, 1, f'=B{current_row - 4 - len(dets) - 2}', cur_fmt); current_row += 1
         
         ws.write(current_row, 0, 'NET ANNUAL PROFIT (صافي الربح)', sub_head_fmt)
-        ws.write_formula(current_row, 1, f'=B{current_row-1}-B{current_row}', profit_fmt); current_row += 1
+        ws.write_formula(current_row, 1, f'=B{current_row-2}-B{current_row-1}', profit_fmt); current_row += 1
         
         ws.write(current_row, 0, 'Return on Investment (ROI)', txt_fmt)
         ws.write_formula(current_row, 1, f'=B{current_row}/B{start_capex-1+len(capex_items)+2}', pct_fmt); current_row += 1 
