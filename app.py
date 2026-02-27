@@ -206,7 +206,6 @@ with tabs[4]:
     t_lam_sqm_req = 0.0
     t_total_sqm_req = 0.0
     
-    # حساب الأطنان لكل مركز تكلفة لتوزيع المصاريف
     tons_ext = 0.0; tons_flx = 0.0; tons_lam = 0.0; tons_slt = 0.0; tons_bag = 0.0
     
     temp_dets = []; m_nd = {}
@@ -216,16 +215,20 @@ with tabs[4]:
         is_printed = r.get("Print", True)
         r_ton = t_tons * (r["Mix%"]/100.0)
         
-        # 🌟 قواعد توجيه المنتجات للماكينات (Routing Rules) بناءً على طلبك 🌟
-        use_ext = "pe" in [r["L1"].lower(), r["L2"].lower(), r["L3"].lower()]
+        # حساب عدد تمريرات اللامنيشن
+        lp = 0
+        if r["M2"] > 0 and str(r["L2"]) != "None": lp += 1
+        if r["M3"] > 0 and str(r["L3"]) != "None": lp += 1
+        
+        # قواعد توجيه المنتجات للماكينات
+        use_ext = "pe" in [str(r["L1"]).lower(), str(r["L2"]).lower(), str(r["L3"]).lower()]
         use_flx = is_printed
-        use_lam = r["L2"] != "None" or r["L3"] != "None"
-        use_slt = any(x in p_name for x in ["1 lyr", "2 lyr", "3 lyr", "bopp"]) # القطاعة لـ 1,2,3 طبقة و BOPP
-        use_bag = "bag" in p_name # التشكيل للأكياس فقط
+        use_slt = any(x in p_name for x in ["1 lyr", "2 lyr", "3 lyr", "bopp"])
+        use_bag = "bag" in p_name
         
         if use_ext: tons_ext += r_ton
         if use_flx: tons_flx += r_ton
-        if use_lam: tons_lam += r_ton
+        if lp > 0: tons_lam += (r_ton * lp) # 🌟 التعديل: نضرب في عدد تمريرات اللامنيشن
         if use_slt: tons_slt += r_ton
         if use_bag: tons_bag += r_ton
         
@@ -239,10 +242,6 @@ with tabs[4]:
         if r["L2"] == "PE": pe_layer_gsm += g2
         if r["L3"] == "PE": pe_layer_gsm += g3
 
-        lp = 0
-        if r["M2"] > 0: lp += 1
-        if r["M3"] > 0: lp += 1
-        
         ag = lp * a_gsm
         tg = g1 + g2 + g3 + ag + (d_ink if is_printed else 0.0)
         
@@ -266,7 +265,7 @@ with tabs[4]:
                 t_ink_k += (sq * w_ink) / 1000.0
                 t_slv_k += (sq * w_ink * 0.5) / 1000.0
             if lp > 0:
-                t_lam_sqm_req += sq  
+                t_lam_sqm_req += (sq * lp) # 🌟 التعديل: الماكينة ستعمل المتر المربع مرتين
             t_adh_k += (sq * ag) / 1000.0
             t_pe_req_tons += r_ton * (pe_layer_gsm / tg)
             
@@ -285,7 +284,7 @@ with tabs[4]:
             "Product": r["Product"], "Printed": is_printed, "Tons": r_ton, 
             "Length(m)": l_len, "GSM": tg, "Flexo GSM": flexo_g,
             "Mat Cost/Kg": c_mat_kg, "Price": r["Price"],
-            "u_ext": use_ext, "u_flx": use_flx, "u_lam": use_lam, "u_slt": use_slt, "u_bag": use_bag
+            "u_ext": use_ext, "u_flx": use_flx, "lam_passes": lp, "u_slt": use_slt, "u_bag": use_bag
         })
         
     esm = t_tons * (1000.0/w_gsm) * 1000.0 if w_gsm > 0 else 0.0
@@ -298,29 +297,25 @@ with tabs[4]:
     a_cons = a_an + a_bl_es + a_pl + a_tp
     a_hr = (payroll + adm_exp) * 12.0
     
-    # 🌟 التكلفة المبنية على الأنشطة (Activity-Based Costing Pools) 🌟
-    # تجميع تكاليف كل مركز (كهرباء + إهلاك + مستهلكات خاصة)
     pool_ext = e_pc + dep_e
-    pool_flx = f_pc + dep_f + a_cons # المستهلكات كلها للفلكسو
+    pool_flx = f_pc + dep_f + a_cons
     pool_lam = l_pc + dep_l
     pool_slt = s_pc + dep_s
     pool_bag = b_pc + dep_b
-    pool_oh  = a_hr + hng_dep + chl_dep + cmp_dep + chl_pc + cmp_pc # المصاريف الإدارية والعامة
+    pool_oh  = a_hr + hng_dep + chl_dep + cmp_dep + chl_pc + cmp_pc 
     
-    # حساب معدل التكلفة لكل كيلو جرام يمر على الماكينة
     rate_ext = (pool_ext / (tons_ext * 1000.0)) if tons_ext > 0 else 0.0
     rate_flx = (pool_flx / (tons_flx * 1000.0)) if tons_flx > 0 else 0.0
     rate_lam = (pool_lam / (tons_lam * 1000.0)) if tons_lam > 0 else 0.0
     rate_slt = (pool_slt / (tons_slt * 1000.0)) if tons_slt > 0 else 0.0
     rate_bag = (pool_bag / (tons_bag * 1000.0)) if tons_bag > 0 else 0.0
-    rate_oh  = (pool_oh / (t_tons * 1000.0)) if t_tons > 0 else 0.0 # الإدارة تتوزع على كل الإنتاج
+    rate_oh  = (pool_oh / (t_tons * 1000.0)) if t_tons > 0 else 0.0 
 
     dets = []
     for d in temp_dets:
-        # تحديد التكاليف التي يتحملها المنتج بناءً على مساره
         cost_ext = rate_ext if d["u_ext"] else 0.0
         cost_flx = rate_flx if d["u_flx"] else 0.0
-        cost_lam = rate_lam if d["u_lam"] else 0.0
+        cost_lam = rate_lam * d["lam_passes"] # 🌟 يضرب معدل اللامنيشن في عدد المرات!
         cost_slt = rate_slt if d["u_slt"] else 0.0
         cost_bag = rate_bag if d["u_bag"] else 0.0
         
@@ -392,7 +387,6 @@ with tabs[4]:
 tot_rev = t_tons * 1000.0 * w_sp
 a_rm = t_tons * 1000.0 * w_rmc
 
-# إجمالي التكاليف الكلية للشركة
 t_opex = a_rm + pool_ext + pool_flx + pool_lam + pool_slt + pool_bag + pool_oh
 n_prof = tot_rev - t_opex
 
@@ -419,9 +413,6 @@ with tabs[5]:
     )
     st.plotly_chart(fig_pie, use_container_width=True)
     
-    # ---------------------------------------------------------
-    # 🪄 محرك الإكسيل المتقدم (صفحة واحدة احترافية One-Pager)
-    # ---------------------------------------------------------
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
         wb = w.book
@@ -501,7 +492,6 @@ with tabs[5]:
         ws.write_formula(current_row, 1, f'=SUM(B{opex_start}:B{current_row})', highlight_fmt)
         current_row += 2
 
-        # 🌟 القسم الرابع الموسع بالتكاليف التفصيلية لكل ماكينة
         ws.write(current_row, 0, '4. ACTIVITY-BASED COSTING & MARGINS (تحليل التكاليف والأرباح لكل منتج)', head_fmt)
         headers = ['Target Tons', 'Mat Cost', 'Extrdr', 'Flexo', 'Lam', 'Slit', 'BagMk', 'Admin(OH)', 'Total Cost', 'Actual Price', 'Net Profit', 'Margin %']
         ws.write_row(current_row, 1, headers, head_fmt)
