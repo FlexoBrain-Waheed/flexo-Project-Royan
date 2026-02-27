@@ -7,12 +7,30 @@ tabs = st.tabs(["1. Materials", "2. Production & Chart", "3. Consumables", "4. H
 
 # --- TAB 1 ---
 with tabs[0]:
-    c1, c2, c3, c4 = st.columns(4)
+    st.subheader("📦 Raw Materials Pricing")
+    c1, c2, c3 = st.columns(3)
     p_b, d_b = c1.number_input("BOPP SAR", 6.0), c1.number_input("BOPP Den", 0.91)
     p_pt, d_pt = c2.number_input("PET SAR", 6.3), c2.number_input("PET Den", 1.40)
-    p_pe, d_pe = c3.number_input("PE SAR", 3.7), c3.number_input("PE Den", 0.92)
-    p_al, d_al = c4.number_input("ALU SAR", 18.0), c4.number_input("ALU Den", 2.70)
-    mat_db = {"BOPP":{"p":p_b,"d":d_b}, "PET":{"p":p_pt,"d":d_pt}, "PE":{"p":p_pe,"d":d_pe}, "ALU":{"p":p_al,"d":d_al}, "None":{"p":0.0,"d":0.0}}
+    p_al, d_al = c3.number_input("ALU SAR", 18.0), c3.number_input("ALU Den", 2.70)
+    
+    st.markdown("#### 🧪 PE Extrusion Grades (أنواع البولي إيثيلين)")
+    c4, c5, c6, c7 = st.columns(4)
+    # 🌟 التعديل هنا: 3 أنواع PE بأسعار مختلفة
+    p_pe_lam = c4.number_input("PE Lam SAR (3 Lyr)", 4.0)
+    p_pe_shrk = c5.number_input("PE Shrink SAR", 3.4)
+    p_pe_bag = c6.number_input("PE Bag SAR", 3.0)
+    d_pe = c7.number_input("PE Density (All)", 0.92)
+    
+    mat_db = {
+        "BOPP": {"p": p_b, "d": d_b}, 
+        "PET": {"p": p_pt, "d": d_pt}, 
+        "ALU": {"p": p_al, "d": d_al},
+        "PE Lam": {"p": p_pe_lam, "d": d_pe},
+        "PE Shrink": {"p": p_pe_shrk, "d": d_pe},
+        "PE Bag": {"p": p_pe_bag, "d": d_pe},
+        "None": {"p": 0.0, "d": 0.0}
+    }
+    
     st.markdown("---")
     ci1, ci2, ci3 = st.columns(3)
     ink_p = ci1.number_input("Ink/Kg", 14.0)
@@ -189,12 +207,13 @@ with tabs[4]:
     
     st.markdown("### 📋 2. Product Portfolio (Recipes)")
     
+    # 🌟 التعديل هنا: المنتجات تسحب الـ PE الصحيح لكل صنف
     init_data = [
         {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 13.0},
         {"Product": "2 Lyr", "Print": True, "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 25, "Price": 13.0},
-        {"Product": "3 Lyr", "Print": True, "L1": "PET", "M1": 12, "L2": "ALU", "M2": 7, "L3": "PE", "M3": 50, "Mix%": 5, "Price": 15.0},
-        {"Product": "Shrink Plain", "Print": False, "L1": "PE", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 30, "Price": 5.0},
-        {"Product": "Printed Shop. Bag", "Print": True, "L1": "PE", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 10.0}
+        {"Product": "3 Lyr", "Print": True, "L1": "PET", "M1": 12, "L2": "ALU", "M2": 7, "L3": "PE Lam", "M3": 50, "Mix%": 5, "Price": 15.0},
+        {"Product": "Shrink Plain", "Print": False, "L1": "PE Shrink", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 30, "Price": 5.0},
+        {"Product": "Printed Shop. Bag", "Print": True, "L1": "PE Bag", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 10.0}
     ]
     df_rec = st.data_editor(pd.DataFrame(init_data), num_rows="dynamic", use_container_width=True)
     
@@ -215,39 +234,40 @@ with tabs[4]:
         is_printed = r.get("Print", True)
         r_ton = t_tons * (r["Mix%"]/100.0)
         
-        # حساب عدد تمريرات اللامنيشن
         lp = 0
         if r["M2"] > 0 and str(r["L2"]) != "None": lp += 1
         if r["M3"] > 0 and str(r["L3"]) != "None": lp += 1
         
-        # قواعد توجيه المنتجات للماكينات
-        use_ext = "pe" in [str(r["L1"]).lower(), str(r["L2"]).lower(), str(r["L3"]).lower()]
+        # 🌟 محرك توجيه ذكي: أي طبقة تحتوي على "pe" تمر على الإكسترودر
+        use_ext = any("pe" in str(r[l]).lower() for l in ["L1", "L2", "L3"])
         use_flx = is_printed
         use_slt = any(x in p_name for x in ["1 lyr", "2 lyr", "3 lyr", "bopp"])
         use_bag = "bag" in p_name
         
         if use_ext: tons_ext += r_ton
         if use_flx: tons_flx += r_ton
-        if lp > 0: tons_lam += (r_ton * lp) # 🌟 التعديل: نضرب في عدد تمريرات اللامنيشن
+        if lp > 0: tons_lam += (r_ton * lp)
         if use_slt: tons_slt += r_ton
         if use_bag: tons_bag += r_ton
         
-        g1 = r["M1"] * mat_db[r["L1"]]["d"]
-        g2 = r["M2"] * mat_db[r["L2"]]["d"]
-        g3 = r["M3"] * mat_db[r["L3"]]["d"]
+        g1 = r["M1"] * mat_db[str(r["L1"])]["d"]
+        g2 = r["M2"] * mat_db[str(r["L2"])]["d"]
+        g3 = r["M3"] * mat_db[str(r["L3"])]["d"]
         
         flexo_g = (g1 + d_ink) if is_printed else 0.0 
         pe_layer_gsm = 0.0
-        if r["L1"] == "PE": pe_layer_gsm += g1
-        if r["L2"] == "PE": pe_layer_gsm += g2
-        if r["L3"] == "PE": pe_layer_gsm += g3
+        
+        # 🌟 حساب وزن الـ PE بدقة للماكينة
+        if "pe" in str(r["L1"]).lower(): pe_layer_gsm += g1
+        if "pe" in str(r["L2"]).lower(): pe_layer_gsm += g2
+        if "pe" in str(r["L3"]).lower(): pe_layer_gsm += g3
 
         ag = lp * a_gsm
         tg = g1 + g2 + g3 + ag + (d_ink if is_printed else 0.0)
         
-        c1 = (g1/1000.0) * mat_db[r["L1"]]["p"]
-        c2 = (g2/1000.0) * mat_db[r["L2"]]["p"]
-        c3 = (g3/1000.0) * mat_db[r["L3"]]["p"]
+        c1 = (g1/1000.0) * mat_db[str(r["L1"])]["p"]
+        c2 = (g2/1000.0) * mat_db[str(r["L2"])]["p"]
+        c3 = (g3/1000.0) * mat_db[str(r["L3"])]["p"]
         ca = (ag/1000.0) * adh_p
         ci = ((w_ink/1000.0) * ink_p) if is_printed else 0.0
         cs = ((w_ink*0.5/1000.0) * solv_p) if is_printed else 0.0
@@ -265,12 +285,12 @@ with tabs[4]:
                 t_ink_k += (sq * w_ink) / 1000.0
                 t_slv_k += (sq * w_ink * 0.5) / 1000.0
             if lp > 0:
-                t_lam_sqm_req += (sq * lp) # 🌟 التعديل: الماكينة ستعمل المتر المربع مرتين
+                t_lam_sqm_req += (sq * lp) 
             t_adh_k += (sq * ag) / 1000.0
             t_pe_req_tons += r_ton * (pe_layer_gsm / tg)
             
             for lyr, mic in [("L1","M1"), ("L2","M2"), ("L3","M3")]:
-                if r[lyr] != "None" and r[mic] > 0:
+                if str(r[lyr]) != "None" and r[mic] > 0:
                     mk = f"{r[lyr]} {r[mic]}µ"
                     m_nd[mk] = m_nd.get(mk, 0.0) + l_len
                     
@@ -315,7 +335,7 @@ with tabs[4]:
     for d in temp_dets:
         cost_ext = rate_ext if d["u_ext"] else 0.0
         cost_flx = rate_flx if d["u_flx"] else 0.0
-        cost_lam = rate_lam * d["lam_passes"] # 🌟 يضرب معدل اللامنيشن في عدد المرات!
+        cost_lam = rate_lam * d["lam_passes"] 
         cost_slt = rate_slt if d["u_slt"] else 0.0
         cost_bag = rate_bag if d["u_bag"] else 0.0
         
@@ -413,6 +433,9 @@ with tabs[5]:
     )
     st.plotly_chart(fig_pie, use_container_width=True)
     
+    # ---------------------------------------------------------
+    # 🪄 محرك الإكسيل المتقدم (صفحة واحدة احترافية One-Pager)
+    # ---------------------------------------------------------
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
         wb = w.book
@@ -462,7 +485,7 @@ with tabs[5]:
         ws.write(current_row, 0, '2. RAW MATERIALS PRICING (أسعار المواد)', head_fmt)
         ws.write(current_row, 1, 'SAR / Kg', head_fmt); current_row += 1
         
-        mat_items = [('BOPP', p_b), ('PET', p_pt), ('PE', p_pe), ('ALU', p_al), ('Ink', ink_p), ('Solvent', solv_p), ('Adhesive', adh_p)]
+        mat_items = [('BOPP', p_b), ('PET', p_pt), ('PE Lam', p_pe_lam), ('PE Shrink', p_pe_shrk), ('PE Bag', p_pe_bag), ('ALU', p_al), ('Ink', ink_p), ('Solvent', solv_p), ('Adhesive', adh_p)]
         for name, val in mat_items:
             ws.write(current_row, 0, name, txt_fmt)
             ws.write(current_row, 1, val, cur_fmt)
