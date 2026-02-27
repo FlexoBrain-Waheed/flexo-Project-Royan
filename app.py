@@ -133,9 +133,11 @@ with tabs[1]:
 with tabs[2]:
     st.subheader("🛠️ Production Consumables")
     cc1, cc2, cc3 = st.columns(3)
-    pl_pr = cc1.number_input("Plate Cost (Cliché) / Job", 2500.0)
-    an_lf = cc1.number_input("Anilox Life(M)", 200.0)
+    # 🌟 التعديل هنا: إضافة سعر الكليشة وعمرها الافتراضي بالمتر الطولي
+    pl_pr = cc1.number_input("Plate SAR (Cliché)", 2500.0)
+    pl_lf = cc1.number_input("Plate Life (m)", 400000.0)
     an_pr = cc1.number_input("Anilox SAR", 15000.0)
+    an_lf = cc1.number_input("Anilox Life(M)", 200.0)
     
     bl_pr = cc2.number_input("Blade SAR/m", 12.0)
     bl_qt = cc2.number_input("Blade m/Job", 21.0)
@@ -323,7 +325,10 @@ ln_m = esm / std_w if std_w > 0 else esm
 
 a_an = (ln_m / (an_lf*1000000.0)) * an_pr * 8.0 if an_lf > 0 else 0.0
 a_bl_es = (ln_m / bl_lf) * (bl_qt*bl_pr + es_pr*8.0) if bl_lf > 0 else 0.0
-a_pl = (j_mo * 12.0) * pl_pr
+
+# 🌟 التعديل العبقري: حساب الكليشة بناءً على الأمتار المطبوعة الفعيلة بدلاً من عدد الطلبيات
+a_pl = (t_flexo_lm_req / pl_lf) * pl_pr if pl_lf > 0 else 0.0
+
 a_tp = (j_mo * 12.0) * tp_qt * tp_pr
 a_cons = a_an + a_bl_es + a_pl + a_tp
 
@@ -358,7 +363,6 @@ with tabs[5]:
     with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
         wb = w.book
         
-        # --- التنسيقات الاحترافية (Formats) ---
         title_fmt = wb.add_format({'bold': True, 'font_size': 16, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#002060', 'font_color': 'white', 'border': 1})
         head_fmt = wb.add_format({'bold': True, 'bg_color': '#4F81BD', 'font_color': 'white', 'border': 1, 'align': 'left'})
         sub_head_fmt = wb.add_format({'bold': True, 'bg_color': '#DCE6F1', 'border': 1, 'align': 'left'})
@@ -369,20 +373,15 @@ with tabs[5]:
         highlight_fmt = wb.add_format({'bold': True, 'bg_color': '#E2EFDA', 'num_format': '#,##0.00', 'border': 1, 'align': 'right'})
         profit_fmt = wb.add_format({'bold': True, 'bg_color': '#C6EFCE', 'font_color': '#006100', 'num_format': '#,##0', 'border': 1, 'align': 'right'})
         
-        # --- إنشاء الصفحة الموحدة ---
         ws = wb.add_worksheet('Executive Financial Summary')
-        ws.set_column('A:A', 40) # عمود الوصف
-        ws.set_column('B:E', 20) # أعمدة الأرقام
-        ws.hide_gridlines(2) # إخفاء الخطوط لتبدو كتقرير احترافي
+        ws.set_column('A:A', 40)
+        ws.set_column('B:E', 20) 
+        ws.hide_gridlines(2) 
         
-        # العنوان الرئيسي
         ws.merge_range('A1:E2', 'NexFlexo Plant - Executive Financial & Operational Summary', title_fmt)
         
         current_row = 3
         
-        # ==========================================
-        # 1. قسم الاستثمار برأس المال (CAPEX)
-        # ==========================================
         ws.write(current_row, 0, '1. CAPITAL INVESTMENT (الاستثمار والأصول)', head_fmt)
         ws.write(current_row, 1, 'SAR', head_fmt); current_row += 1
         
@@ -405,9 +404,6 @@ with tabs[5]:
         ws.write_formula(current_row, 1, f'=SUM(B{start_capex}:B{current_row})', highlight_fmt)
         current_row += 2
         
-        # ==========================================
-        # 2. قسم المواد الخام (Materials)
-        # ==========================================
         ws.write(current_row, 0, '2. RAW MATERIALS PRICING (أسعار المواد)', head_fmt)
         ws.write_row(current_row, 1, ['SAR / Kg', '', '', ''], head_fmt); current_row += 1
         
@@ -418,9 +414,6 @@ with tabs[5]:
             current_row += 1
         current_row += 1
 
-        # ==========================================
-        # 3. قسم تحليل المصاريف السنوية (OPEX)
-        # ==========================================
         ws.write(current_row, 0, '3. ANNUAL OPERATING EXPENSES (مصاريف التشغيل السنوية)', head_fmt)
         ws.write_row(current_row, 1, ['SAR / Year', '', '', ''], head_fmt); current_row += 1
         
@@ -443,26 +436,19 @@ with tabs[5]:
         ws.write_formula(current_row, 1, f'=SUM(B{opex_start}:B{current_row})', highlight_fmt)
         current_row += 2
 
-        # ==========================================
-        # 4. قسم التكلفة وسعر البيع بناءً على 15% (القسم الذهبي)
-        # ==========================================
         ws.write(current_row, 0, '4. PRICING STRATEGY & 15% TARGET MARGIN (استراتيجية التسعير)', head_fmt)
         ws.write_row(current_row, 1, ['Target Tons', 'Cost / Kg', 'Target Price (+15%)', 'Actual Price Set'], head_fmt)
         current_row += 1
         
         for d in dets:
             ws.write(current_row, 0, d['Product'], txt_fmt)
-            ws.write(current_row, 1, d['Tons'], num_fmt)               # Column B: Tons
-            ws.write(current_row, 2, d['Total Cost/Kg'], cur_fmt)      # Column C: Cost/Kg
-            # معادلة الإكسيل: التكلفة * 1.15
-            ws.write_formula(current_row, 3, f'=C{current_row+1}*1.15', highlight_fmt) # Column D: Target Price
-            ws.write(current_row, 4, d['Margin'] + d['Total Cost/Kg'], cur_fmt) # Column E: Actual Price
+            ws.write(current_row, 1, d['Tons'], num_fmt)               
+            ws.write(current_row, 2, d['Total Cost/Kg'], cur_fmt)      
+            ws.write_formula(current_row, 3, f'=C{current_row+1}*1.15', highlight_fmt) 
+            ws.write(current_row, 4, d['Margin'] + d['Total Cost/Kg'], cur_fmt) 
             current_row += 1
         current_row += 1
 
-        # ==========================================
-        # 5. الخلاصة المبيعات والأرباح (Bottom Line)
-        # ==========================================
         ws.write(current_row, 0, '5. FINANCIAL SUMMARY (الخلاصة المالية السنوية)', head_fmt)
         ws.write_row(current_row, 1, ['SAR', '', '', ''], head_fmt); current_row += 1
         
@@ -476,7 +462,7 @@ with tabs[5]:
         ws.write_formula(current_row, 1, f'=B{current_row-1}-B{current_row}', profit_fmt); current_row += 1
         
         ws.write(current_row, 0, 'Return on Investment (ROI)', txt_fmt)
-        ws.write_formula(current_row, 1, f'=B{current_row}/B{start_capex-1+len(capex_items)+2}', pct_fmt); current_row += 1 # Net Profit / Total Investment
+        ws.write_formula(current_row, 1, f'=B{current_row}/B{start_capex-1+len(capex_items)+2}', pct_fmt); current_row += 1 
         
         ws.write(current_row, 0, 'Payback Period (Years)', txt_fmt)
         ws.write_formula(current_row, 1, f'=B{start_capex-1+len(capex_items)+2}/B{current_row-1}', cur_fmt)
