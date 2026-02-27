@@ -83,7 +83,8 @@ with tabs[1]:
     with m4:
         s_s = st.number_input("Slit Speed", 400.0)
         s_w = st.number_input("Slit Width", 1.0)
-        s_e = st.slider("Slit Eff%", 40, 100, 80)
+        # 🌟 تم التعديل هنا: كفاءة السلتر الافتراضية أصبحت 50%
+        s_e = st.slider("Slit Eff%", 40, 100, 50)
         s_k = st.number_input("Slit kW", 40.0)
         s_pr = st.number_input("Slit CAPEX", 800000.0)
         s_lm = net_hrs * 60.0 * s_s * (s_e/100.0)
@@ -206,7 +207,6 @@ with tabs[4]:
     
     st.markdown("### 📋 2. Product Portfolio (Recipes)")
     
-    # 🌟 التعديل هنا: سماكة أكياس التسوق أصبحت 60 ميكرون
     init_data = [
         {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 13.0},
         {"Product": "2 Lyr", "Print": True, "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 25, "Price": 13.0},
