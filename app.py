@@ -121,12 +121,17 @@ with tabs[1]:
     c_cap1.metric("Total CAPEX (Machines + Utilities)", f"SAR {t_capex:,.0f}")
     
     mac_dep_y = c_cap2.number_input("Machines Depreciation Yrs", 10.0)
-    mac_dep = mac_capex / mac_dep_y if mac_dep_y > 0 else 0.0
+    dep_e = e_pr / mac_dep_y if mac_dep_y > 0 else 0.0
+    dep_f = f_pr / mac_dep_y if mac_dep_y > 0 else 0.0
+    dep_l = l_pr / mac_dep_y if mac_dep_y > 0 else 0.0
+    dep_s = s_pr / mac_dep_y if mac_dep_y > 0 else 0.0
+    dep_b = b_pr / mac_dep_y if mac_dep_y > 0 else 0.0
+    
     hng_dep = hng_pr / hng_dep_y if hng_dep_y > 0 else 0.0
     chl_dep = chl_pr / chl_dep_y if chl_dep_y > 0 else 0.0
     cmp_dep = cmp_pr / cmp_dep_y if cmp_dep_y > 0 else 0.0
-    ann_dep = mac_dep + hng_dep + chl_dep + cmp_dep
     
+    ann_dep = dep_e + dep_f + dep_l + dep_s + dep_b + hng_dep + chl_dep + cmp_dep
     t_pwr = e_pc + f_pc + l_pc + s_pc + b_pc + chl_pc + cmp_pc
 
 # --- TAB 3 ---
@@ -201,10 +206,28 @@ with tabs[4]:
     t_lam_sqm_req = 0.0
     t_total_sqm_req = 0.0
     
+    # حساب الأطنان لكل مركز تكلفة لتوزيع المصاريف
+    tons_ext = 0.0; tons_flx = 0.0; tons_lam = 0.0; tons_slt = 0.0; tons_bag = 0.0
+    
     temp_dets = []; m_nd = {}
     
     for _, r in df_rec.iterrows():
+        p_name = r["Product"].lower()
         is_printed = r.get("Print", True)
+        r_ton = t_tons * (r["Mix%"]/100.0)
+        
+        # 🌟 قواعد توجيه المنتجات للماكينات (Routing Rules) بناءً على طلبك 🌟
+        use_ext = "pe" in [r["L1"].lower(), r["L2"].lower(), r["L3"].lower()]
+        use_flx = is_printed
+        use_lam = r["L2"] != "None" or r["L3"] != "None"
+        use_slt = any(x in p_name for x in ["1 lyr", "2 lyr", "3 lyr", "bopp"]) # القطاعة لـ 1,2,3 طبقة و BOPP
+        use_bag = "bag" in p_name # التشكيل للأكياس فقط
+        
+        if use_ext: tons_ext += r_ton
+        if use_flx: tons_flx += r_ton
+        if use_lam: tons_lam += r_ton
+        if use_slt: tons_slt += r_ton
+        if use_bag: tons_bag += r_ton
         
         g1 = r["M1"] * mat_db[r["L1"]]["d"]
         g2 = r["M2"] * mat_db[r["L2"]]["d"]
@@ -231,24 +254,19 @@ with tabs[4]:
         cs = ((w_ink*0.5/1000.0) * solv_p) if is_printed else 0.0
         
         c_mat_kg = (c1+c2+c3+ca+ci+cs)/(tg/1000.0) if tg > 0 else 0.0
-        
-        r_ton = t_tons * (r["Mix%"]/100.0)
         l_len = 0.0
         
         if tg > 0:
             sq = (r_ton * 1000000.0) / tg
             t_total_sqm_req += sq  
-            
             if std_w > 0: l_len = sq / std_w
             
             if is_printed:
                 t_flexo_lm_req += l_len  
                 t_ink_k += (sq * w_ink) / 1000.0
                 t_slv_k += (sq * w_ink * 0.5) / 1000.0
-                
             if lp > 0:
                 t_lam_sqm_req += sq  
-                
             t_adh_k += (sq * ag) / 1000.0
             t_pe_req_tons += r_ton * (pe_layer_gsm / tg)
             
@@ -266,7 +284,8 @@ with tabs[4]:
         temp_dets.append({
             "Product": r["Product"], "Printed": is_printed, "Tons": r_ton, 
             "Length(m)": l_len, "GSM": tg, "Flexo GSM": flexo_g,
-            "Mat Cost/Kg": c_mat_kg, "Price": r["Price"]
+            "Mat Cost/Kg": c_mat_kg, "Price": r["Price"],
+            "u_ext": use_ext, "u_flx": use_flx, "u_lam": use_lam, "u_slt": use_slt, "u_bag": use_bag
         })
         
     esm = t_tons * (1000.0/w_gsm) * 1000.0 if w_gsm > 0 else 0.0
@@ -279,12 +298,34 @@ with tabs[4]:
     a_cons = a_an + a_bl_es + a_pl + a_tp
     a_hr = (payroll + adm_exp) * 12.0
     
-    total_conv_cost = a_cons + a_hr + t_pwr + ann_dep
-    conv_cost_per_kg = total_conv_cost / (t_tons * 1000.0) if t_tons > 0 else 0.0
+    # 🌟 التكلفة المبنية على الأنشطة (Activity-Based Costing Pools) 🌟
+    # تجميع تكاليف كل مركز (كهرباء + إهلاك + مستهلكات خاصة)
+    pool_ext = e_pc + dep_e
+    pool_flx = f_pc + dep_f + a_cons # المستهلكات كلها للفلكسو
+    pool_lam = l_pc + dep_l
+    pool_slt = s_pc + dep_s
+    pool_bag = b_pc + dep_b
+    pool_oh  = a_hr + hng_dep + chl_dep + cmp_dep + chl_pc + cmp_pc # المصاريف الإدارية والعامة
     
+    # حساب معدل التكلفة لكل كيلو جرام يمر على الماكينة
+    rate_ext = (pool_ext / (tons_ext * 1000.0)) if tons_ext > 0 else 0.0
+    rate_flx = (pool_flx / (tons_flx * 1000.0)) if tons_flx > 0 else 0.0
+    rate_lam = (pool_lam / (tons_lam * 1000.0)) if tons_lam > 0 else 0.0
+    rate_slt = (pool_slt / (tons_slt * 1000.0)) if tons_slt > 0 else 0.0
+    rate_bag = (pool_bag / (tons_bag * 1000.0)) if tons_bag > 0 else 0.0
+    rate_oh  = (pool_oh / (t_tons * 1000.0)) if t_tons > 0 else 0.0 # الإدارة تتوزع على كل الإنتاج
+
     dets = []
     for d in temp_dets:
-        total_true_cost = d["Mat Cost/Kg"] + conv_cost_per_kg
+        # تحديد التكاليف التي يتحملها المنتج بناءً على مساره
+        cost_ext = rate_ext if d["u_ext"] else 0.0
+        cost_flx = rate_flx if d["u_flx"] else 0.0
+        cost_lam = rate_lam if d["u_lam"] else 0.0
+        cost_slt = rate_slt if d["u_slt"] else 0.0
+        cost_bag = rate_bag if d["u_bag"] else 0.0
+        
+        total_mfg_cost = cost_ext + cost_flx + cost_lam + cost_slt + cost_bag + rate_oh
+        total_true_cost = d["Mat Cost/Kg"] + total_mfg_cost
         net_profit_kg = d["Price"] - total_true_cost
         margin_pct = (net_profit_kg / d["Price"]) if d["Price"] > 0 else 0.0
         
@@ -293,29 +334,26 @@ with tabs[4]:
             "Printed": "✅" if d["Printed"] else "❌",
             "Tons": d["Tons"],
             "Length(m)": d["Length(m)"],
-            "GSM": d["GSM"],                   # 🌟 تم إصلاح الخطأ وإضافة GSM هنا
-            "Flexo GSM": d["Flexo GSM"],       # 🌟 تمت إضافته للرجوع إليه عند الحاجة
-            "Mat. Cost/Kg": d["Mat Cost/Kg"],
-            "Mfg Cost/Kg": conv_cost_per_kg,
-            "Total Cost/Kg": total_true_cost,
+            "GSM": d["GSM"],                   
+            "Mat Cost": d["Mat Cost/Kg"],
+            "Extrdr": cost_ext,
+            "Flexo": cost_flx,
+            "Lam": cost_lam,
+            "Slit": cost_slt,
+            "BagMk": cost_bag,
+            "Admin(OH)": rate_oh,
+            "Total Cost": total_true_cost,
             "Sell Price": d["Price"],
             "Profit/Kg": net_profit_kg,
             "Margin %": margin_pct
         })
         
-    st.markdown("### 📊 3. Full Absorbed Costing & True Profit Margins")
+    st.markdown("### 📊 3. Full Absorbed Costing Breakdown (SAR/Kg)")
     df_dets = pd.DataFrame(dets)
-    col_t1, col_t2 = st.columns([7, 3])
-    with col_t1:
-        st.dataframe(df_dets[["Product", "Printed", "Tons", "Length(m)", "Mat. Cost/Kg", "Mfg Cost/Kg", "Total Cost/Kg", "Sell Price", "Profit/Kg", "Margin %"]].style.format({
-            "Tons": "{:,.1f}", "Length(m)": "{:,.0f}", 
-            "Mat. Cost/Kg": "{:,.2f}", "Mfg Cost/Kg": "{:,.2f}", "Total Cost/Kg": "{:,.2f}", 
-            "Sell Price": "{:,.2f}", "Profit/Kg": "{:,.2f}", "Margin %": "{:,.1%}"
-        }), use_container_width=True)
-    with col_t2:
-        if m_nd:
-            df_m_nd = pd.DataFrame([{"Material Roll": k, "Linear Meters": v} for k, v in m_nd.items()])
-            st.dataframe(df_m_nd.style.format({"Linear Meters": "{:,.0f}"}), use_container_width=True)
+    st.dataframe(df_dets[["Product", "Printed", "Tons", "Mat Cost", "Extrdr", "Flexo", "Lam", "Slit", "BagMk", "Admin(OH)", "Total Cost", "Sell Price", "Profit/Kg", "Margin %"]].style.format({
+        "Tons": "{:,.1f}", "Mat Cost": "{:,.2f}", "Extrdr": "{:,.2f}", "Flexo": "{:,.2f}", "Lam": "{:,.2f}", "Slit": "{:,.2f}", "BagMk": "{:,.2f}", "Admin(OH)": "{:,.2f}", "Total Cost": "{:,.2f}", 
+        "Sell Price": "{:,.2f}", "Profit/Kg": "{:,.2f}", "Margin %": "{:,.1%}"
+    }), use_container_width=True)
             
     fig_margin = px.bar(df_dets, x="Product", y="Profit/Kg", color="Product", title="💰 True Net Profit per Product (SAR/Kg)", text_auto=".2f")
     st.plotly_chart(fig_margin, use_container_width=True)
@@ -354,7 +392,8 @@ with tabs[4]:
 tot_rev = t_tons * 1000.0 * w_sp
 a_rm = t_tons * 1000.0 * w_rmc
 
-t_opex = a_rm + total_conv_cost
+# إجمالي التكاليف الكلية للشركة
+t_opex = a_rm + pool_ext + pool_flx + pool_lam + pool_slt + pool_bag + pool_oh
 n_prof = tot_rev - t_opex
 
 pbk = t_capex / n_prof if n_prof > 0 else 0.0
@@ -380,6 +419,9 @@ with tabs[5]:
     )
     st.plotly_chart(fig_pie, use_container_width=True)
     
+    # ---------------------------------------------------------
+    # 🪄 محرك الإكسيل المتقدم (صفحة واحدة احترافية One-Pager)
+    # ---------------------------------------------------------
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
         wb = w.book
@@ -395,11 +437,11 @@ with tabs[5]:
         profit_fmt = wb.add_format({'bold': True, 'bg_color': '#C6EFCE', 'font_color': '#006100', 'num_format': '#,##0.00', 'border': 1, 'align': 'right'})
         
         ws = wb.add_worksheet('Executive Financial Summary')
-        ws.set_column('A:A', 40) 
-        ws.set_column('B:H', 15) 
+        ws.set_column('A:A', 35) 
+        ws.set_column('B:K', 12) 
         ws.hide_gridlines(2) 
         
-        ws.merge_range('A1:H2', 'Royan Plant - Executive Financial & Operational Summary', title_fmt)
+        ws.merge_range('A1:K2', 'Royan Plant - Executive Financial & Operational Summary', title_fmt)
         
         current_row = 3
         
@@ -459,19 +501,26 @@ with tabs[5]:
         ws.write_formula(current_row, 1, f'=SUM(B{opex_start}:B{current_row})', highlight_fmt)
         current_row += 2
 
-        ws.write(current_row, 0, '4. PRICING & MARGINS PER PRODUCT (التسعير وهوامش الربح)', head_fmt)
-        ws.write_row(current_row, 1, ['Target Tons', 'Mat. Cost/Kg', 'Mfg Cost/Kg', 'Total Cost/Kg', 'Actual Price', 'Net Profit/Kg', 'Margin %'], head_fmt)
+        # 🌟 القسم الرابع الموسع بالتكاليف التفصيلية لكل ماكينة
+        ws.write(current_row, 0, '4. ACTIVITY-BASED COSTING & MARGINS (تحليل التكاليف والأرباح لكل منتج)', head_fmt)
+        headers = ['Target Tons', 'Mat Cost', 'Extrdr', 'Flexo', 'Lam', 'Slit', 'BagMk', 'Admin(OH)', 'Total Cost', 'Actual Price', 'Net Profit', 'Margin %']
+        ws.write_row(current_row, 1, headers, head_fmt)
         current_row += 1
         
         for d in dets:
             ws.write(current_row, 0, d['Product'], txt_fmt)
             ws.write(current_row, 1, d['Tons'], num_fmt)               
-            ws.write(current_row, 2, d['Mat. Cost/Kg'], cur_fmt)      
-            ws.write(current_row, 3, d['Mfg Cost/Kg'], cur_fmt)      
-            ws.write(current_row, 4, d['Total Cost/Kg'], cur_fmt)      
-            ws.write(current_row, 5, d['Sell Price'], highlight_fmt) 
-            ws.write(current_row, 6, d['Profit/Kg'], cur_fmt) 
-            ws.write(current_row, 7, d['Margin %'], pct_fmt) 
+            ws.write(current_row, 2, d['Mat Cost'], cur_fmt)      
+            ws.write(current_row, 3, d['Extrdr'], cur_fmt)      
+            ws.write(current_row, 4, d['Flexo'], cur_fmt)      
+            ws.write(current_row, 5, d['Lam'], cur_fmt)      
+            ws.write(current_row, 6, d['Slit'], cur_fmt)      
+            ws.write(current_row, 7, d['BagMk'], cur_fmt)      
+            ws.write(current_row, 8, d['Admin(OH)'], cur_fmt)      
+            ws.write(current_row, 9, d['Total Cost'], highlight_fmt) 
+            ws.write(current_row, 10, d['Sell Price'], highlight_fmt) 
+            ws.write(current_row, 11, d['Profit/Kg'], cur_fmt) 
+            ws.write(current_row, 12, d['Margin %'], pct_fmt) 
             current_row += 1
         current_row += 1
 
@@ -512,8 +561,8 @@ with tabs[6]:
     pl = [i["Product"] for i in dets]
     sr = cq2.selectbox("Product", pl)
     
-    sc = next((i["Total Cost/Kg"] for i in dets if i["Product"] == sr), 0)
-    sg = next((i["GSM"] for i in dets if i["Product"] == sr), 0) # 🌟 يعمل هنا بنجاح تام
+    sc = next((i["Total Cost"] for i in dets if i["Product"] == sr), 0)
+    sg = next((i["GSM"] for i in dets if i["Product"] == sr), 0)
     
     mp = cq1.number_input("Margin %", 5, 100, 20)
     if st.button("Generate Offer"):
