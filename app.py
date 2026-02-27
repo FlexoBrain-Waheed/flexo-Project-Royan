@@ -98,14 +98,6 @@ with tabs[1]:
     ann_dep = dep_e + dep_f + dep_l + dep_s + dep_b + (hng_pr/hng_dep_y) + (chl_pr/chl_dep_y) + (cmp_pr/cmp_dep_y)
     t_capex = e_pr + f_pr + l_pr + s_pr + b_pr + hng_pr + chl_pr + cmp_pr
 
-    st.markdown("### 📊 Capacity Check")
-    chart_gsm = st.number_input("Avg GSM for Chart", value=40.0, step=1.0)
-    df_cap = pd.DataFrame({
-        "Machine": ["Extruder", "Flexo", "Lam", "Slitter", "BagMk"],
-        "Max Tons": [(e_kg*net_hrs/1000), (f_lm_cap*f_w*chart_gsm/1000000), (l_lm_cap*l_w*chart_gsm/1000000), (s_lm_cap*s_w*chart_gsm/1000000), (b_lm_cap*chart_gsm/1000000)]
-    })
-    st.plotly_chart(px.bar(df_cap, x="Machine", y="Max Tons", color="Machine", text_auto='.0f'), use_container_width=True)
-
 # --- TAB 3: Consumables ---
 with tabs[2]:
     st.subheader("🛠️ Consumables")
@@ -142,7 +134,17 @@ with tabs[4]:
     a_gsm = c_s4.number_input("Adh GSM", value=1.8, step=0.1)
     d_ink = w_ink * (1.0 - (i_loss/100.0))
     
-    st.markdown("### 📋 2. Product Portfolio")
+    # 🌟 المحرك الجديد: محرك الهالك وإعادة البيع 🌟
+    st.markdown("### ♻️ 2. Scrap & Waste Engine")
+    st.info("حدد نسبة هالك التشغيل لكل ماكينة وسعر بيع السكراب لخصمه من التكاليف.")
+    cw1, cw2, cw3, cw4, cw5 = st.columns(5)
+    w_ext = cw1.number_input("Extruder Waste %", value=3.0, step=0.5)
+    w_flx = cw2.number_input("Flexo Waste %", value=4.0, step=0.5)
+    w_lam = cw3.number_input("Lam Waste %", value=3.0, step=0.5)
+    w_fin = cw4.number_input("Finishing Waste %", value=2.0, step=0.5)
+    scrap_p = cw5.number_input("Scrap Resale (SAR/Kg)", value=1.5, step=0.1)
+    
+    st.markdown("### 📋 3. Product Portfolio")
     init_data = [
         {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 13.0},
         {"Product": "2 Lyr", "Print": True, "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 25, "Price": 13.0},
@@ -163,29 +165,49 @@ with tabs[4]:
         u_slt = any(x in pn for x in ["1 lyr","2 lyr","3 lyr","bopp"])
         u_bag = "bag" in pn
         
-        if u_ext: tons_ext += r_ton
-        if is_p: tons_flx += r_ton
-        if lp > 0: tons_lam += (r_ton * lp)
-        if u_slt: tons_slt += r_ton
-        if u_bag: tons_bag += r_ton
+        # 🌟 حساب معامل التصافي (Yield) بناءً على مسار المنتج 🌟
+        y = 1.0
+        if u_ext: y *= (1.0 - w_ext/100.0)
+        if is_p: y *= (1.0 - w_flx/100.0)
+        if lp > 0: y *= (1.0 - w_lam/100.0)**lp
+        if u_slt or u_bag: y *= (1.0 - w_fin/100.0)
+        
+        # الوزن الكلي المطلوب قبل الهالك
+        gross_ton = r_ton / y if y > 0 else r_ton
+        scrap_ton = gross_ton - r_ton
+        
+        # تحميل الماكينات بالوزن والأمتار الـ (Gross) شامل الهالك
+        if u_ext: tons_ext += gross_ton
+        if is_p: tons_flx += gross_ton
+        if lp > 0: tons_lam += (gross_ton * lp)
+        if u_slt: tons_slt += gross_ton
+        if u_bag: tons_bag += gross_ton
         
         g1, g2, g3 = r["M1"]*mat_db[str(r["L1"])]["d"], r["M2"]*mat_db[str(r["L2"])]["d"], r["M3"]*mat_db[str(r["L3"])]["d"]
         tg = g1 + g2 + g3 + (lp*a_gsm) + (d_ink if is_p else 0)
-        c_mat = ((g1/1000*mat_db[str(r["L1"])]["p"]) + (g2/1000*mat_db[str(r["L2"])]["p"]) + (g3/1000*mat_db[str(r["L3"])]["p"]) + (lp*a_gsm/1000*adh_p) + (w_ink/1000*ink_p if is_p else 0) + (w_ink*0.5/1000*solv_p if is_p else 0))/(tg/1000.0) if tg>0 else 0
+        
+        c_mat_ideal = ((g1/1000*mat_db[str(r["L1"])]["p"]) + (g2/1000*mat_db[str(r["L2"])]["p"]) + (g3/1000*mat_db[str(r["L3"])]["p"]) + (lp*a_gsm/1000*adh_p) + (w_ink/1000*ink_p if is_p else 0) + (w_ink*0.5/1000*solv_p if is_p else 0))/(tg/1000.0) if tg>0 else 0
+        
+        # تكلفة المواد الإجمالية وصافي التكلفة بعد بيع السكراب
+        gross_mat_cost = c_mat_ideal / y if y > 0 else c_mat_ideal
+        scrap_rev_kg = ((1.0/y) - 1.0) * scrap_p if y > 0 else 0
+        net_mat_cost = gross_mat_cost - scrap_rev_kg
+        
         l_len = (r_ton*1000000/tg)/std_w if tg>0 and std_w>0 else 0
+        gross_len = l_len / y if y > 0 else l_len
         
         if is_p: 
-            t_flexo_lm += l_len
-            t_ink_k += (l_len * std_w * w_ink) / 1000.0
-            t_slv_k += (l_len * std_w * w_ink * 0.5) / 1000.0
+            t_flexo_lm += gross_len
+            t_ink_k += (gross_len * std_w * w_ink) / 1000.0
+            t_slv_k += (gross_len * std_w * w_ink * 0.5) / 1000.0
         if lp > 0: 
-            t_lam_sqm += (l_len*std_w*lp)
-            t_adh_k += (l_len * std_w * a_gsm * lp) / 1000.0
-        if u_slt: t_slt_lm += l_len
-        if u_bag: t_bag_lm += l_len
+            t_lam_sqm += (gross_len*std_w*lp)
+            t_adh_k += (gross_len * std_w * a_gsm * lp) / 1000.0
+        if u_slt: t_slt_lm += gross_len
+        if u_bag: t_bag_lm += gross_len
         w_gsm += tg*(r["Mix%"]/100.0)
         
-        temp_dets.append({"Product":r["Product"],"Printed":is_p,"Tons":r_ton,"GSM":tg,"MatCost":c_mat,"Price":r["Price"],"u_ext":u_ext,"lp":lp,"u_slt":u_slt,"u_bag":u_bag})
+        temp_dets.append({"Product":r["Product"],"Printed":is_p,"Tons":r_ton,"GSM":tg,"NetMatCost":net_mat_cost, "Waste%": (1-y), "ScrapRev/Kg": scrap_rev_kg, "Price":r["Price"],"u_ext":u_ext,"lp":lp,"u_slt":u_slt,"u_bag":u_bag})
 
     ln_m = (t_tons*1000/w_gsm*1000)/std_w if w_gsm>0 and std_w>0 else 0
     a_cons = ((ln_m/(an_lf*1000000.0))*an_pr*8.0 if an_lf>0 else 0) + ((ln_m/bl_lf)*(bl_qt*bl_pr + es_pr*8.0) if bl_lf>0 else 0) + ((t_flexo_lm/pl_lf)*pl_pr if pl_lf>0 else 0) + ((j_mo*12.0)*tp_qt*tp_pr)
@@ -204,37 +226,32 @@ with tabs[4]:
         c_l = r_l * d["lp"]
         c_s = r_s if d["u_slt"] else 0
         c_b = r_b if d["u_bag"] else 0
-        t_cost = d["MatCost"] + c_e + c_f + c_l + c_s + c_b + r_o
+        t_cost = d["NetMatCost"] + c_e + c_f + c_l + c_s + c_b + r_o
         m_pct = (d["Price"] - t_cost) / d["Price"] if d["Price"] > 0 else 0
         
         dets.append({
-            "Product": d["Product"], "Tons": d["Tons"], "MatCost": d["MatCost"], 
+            "Product": d["Product"], "Tons": d["Tons"], "Waste%": d["Waste%"], "NetMatCost": d["NetMatCost"], 
             "Extrdr": c_e, "Flexo": c_f, "Lam": c_l, "Slit": c_s, "BagMk": c_b, "OH": r_o,
-            "TotalCost": t_cost, "Price": d["Price"], "Profit": d["Price"]-t_cost, "Margin%": m_pct, "GSM": d["GSM"]
+            "TotalCost": t_cost, "Price": d["Price"], "Profit": d["Price"]-t_cost, "Margin%": m_pct, "ScrapRev/Kg": d["ScrapRev/Kg"], "GSM": d["GSM"]
         })
     
-    st.markdown("### 📊 3. Detailed ABC Costing (SAR/Kg)")
+    st.markdown("### 📊 4. Detailed ABC Costing & Waste (SAR/Kg)")
     df_show = pd.DataFrame(dets)
-    
     format_dict = {
-        "Tons": "{:,.1f}", "MatCost": "{:,.2f}", "Extrdr": "{:,.2f}", "Flexo": "{:,.2f}", 
+        "Tons": "{:,.1f}", "Waste%": "{:,.1%}", "NetMatCost": "{:,.2f}", "Extrdr": "{:,.2f}", "Flexo": "{:,.2f}", 
         "Lam": "{:,.2f}", "Slit": "{:,.3f}", "BagMk": "{:,.2f}", "OH": "{:,.2f}", 
         "TotalCost": "{:,.2f}", "Price": "{:,.2f}", "Profit": "{:,.2f}", "Margin%": "{:,.2%}"
     }
+    st.dataframe(df_show[["Product", "Tons", "Waste%", "NetMatCost", "Extrdr", "Flexo", "Lam", "Slit", "BagMk", "OH", "TotalCost", "Price", "Profit", "Margin%"]].style.format(format_dict), use_container_width=True)
     
-    st.dataframe(df_show[["Product", "Tons", "MatCost", "Extrdr", "Flexo", "Lam", "Slit", "BagMk", "OH", "TotalCost", "Price", "Profit", "Margin%"]].style.format(format_dict), use_container_width=True)
-    
-    # 🌟 إعادة قسم الكيماويات الشهرية المفقود 🌟
-    st.markdown("### 🧪 4. Monthly Chemicals Estimate")
+    st.markdown("### 🧪 5. Monthly Chemicals Estimate")
     c_ch1, c_ch2, c_ch3 = st.columns(3)
     c_ch1.metric("🎨 Ink Kg/Mo", f"{t_ink_k/12:,.0f}")
     c_ch2.metric("🧪 Solv Kg/Mo", f"{t_slv_k/12:,.0f}")
     c_ch3.metric("🍯 Adh Kg/Mo", f"{t_adh_k/12:,.0f}")
 
-    # 🌟 إعادة قسم موازنة الخطوط والمربعات الملونة المفقودة (Exact Line Balancing) 🌟
-    st.markdown("### 🚦 5. Exact Line Balancing (Bottleneck Check)")
+    st.markdown("### 🚦 6. Exact Line Balancing (Bottleneck Check)")
     cb1, cb2, cb3, cb4, cb5 = st.columns(5)
-    
     if tons_ext <= e_tons_cap: cb1.success(f"Extruder\n\nCap: {e_tons_cap:,.0f} T\n\nReq: {tons_ext:,.0f} T")
     else: cb1.error(f"Extruder\n\nCap: {e_tons_cap:,.0f} T\n\nReq: {tons_ext:,.0f} T")
     
@@ -253,23 +270,26 @@ with tabs[4]:
     req_b_lm_m, cap_b_lm_m = t_bag_lm / 1000000, b_lm_cap / 1000000
     if t_bag_lm <= b_lm_cap: cb5.success(f"BagMk (M m)\n\nCap: {cap_b_lm_m:,.2f}\n\nReq: {req_b_lm_m:,.2f}")
     else: cb5.error(f"BagMk (M m)\n\nCap: {cap_b_lm_m:,.2f}\n\nReq: {req_b_lm_m:,.2f}")
-    
-    st.markdown("### 💰 6. Net Profit Margin Chart")
-    st.plotly_chart(px.bar(df_show, x="Product", y="Profit", color="Product", text_auto=".2f"), use_container_width=True)
 
 # --- TAB 6 & 7: P&L Summary ---
 with tabs[5]:
     total_rev = sum(d['Price']*d['Tons']*1000 for d in dets)
+    total_scrap_rev = sum(d['ScrapRev/Kg']*d['Tons']*1000 for d in dets)
     total_all_cost = sum(d['TotalCost']*d['Tons']*1000 for d in dets)
+    
     st.header("Plant Financial Summary")
-    f1, f2, f3 = st.columns(3)
-    f1.metric("Revenue", f"SAR {total_rev:,.0f}")
-    f2.metric("Total Cost", f"SAR {total_all_cost:,.0f}")
-    f3.metric("Net Profit", f"SAR {total_rev-total_all_cost:,.0f}")
+    f1, f2, f3, f4 = st.columns(4)
+    f1.metric("Product Revenue", f"SAR {total_rev:,.0f}")
+    f2.metric("Scrap Recovery Rev.", f"SAR {total_scrap_rev:,.0f}")
+    f3.metric("Total Cost", f"SAR {total_all_cost:,.0f}")
+    f4.metric("Net Profit", f"SAR {(total_rev)-total_all_cost:,.0f}")
+    
+    st.markdown("### 💰 Net Profit Margin Chart")
+    st.plotly_chart(px.bar(df_show, x="Product", y="Profit", color="Product", text_auto=".2f"), use_container_width=True)
     
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
-        df_show.drop(columns=['GSM']).to_excel(w, sheet_name='Costing_Analysis', index=False)
+        df_show.drop(columns=['GSM', 'ScrapRev/Kg']).to_excel(w, sheet_name='Costing_Analysis', index=False)
     st.download_button("📥 Download Excel Summary", buf.getvalue(), "Royan_Summary.xlsx", use_container_width=True)
 
 with tabs[6]:
