@@ -10,13 +10,15 @@ with tabs[0]:
     c1, c2, c3, c4 = st.columns(4)
     p_b, d_b = c1.number_input("BOPP SAR", 6.0), c1.number_input("BOPP Den", 0.91)
     p_pt, d_pt = c2.number_input("PET SAR", 6.3), c2.number_input("PET Den", 1.40)
-    # تم تعديل سعر الـ PE إلى 3.7 ريال للكيلو (3700 للطن)
     p_pe, d_pe = c3.number_input("PE SAR", 3.7), c3.number_input("PE Den", 0.92)
     p_al, d_al = c4.number_input("ALU SAR", 18.0), c4.number_input("ALU Den", 2.70)
     mat_db = {"BOPP":{"p":p_b,"d":d_b}, "PET":{"p":p_pt,"d":d_pt}, "PE":{"p":p_pe,"d":d_pe}, "ALU":{"p":p_al,"d":d_al}, "None":{"p":0.0,"d":0.0}}
     st.markdown("---")
     ci1, ci2, ci3 = st.columns(3)
-    ink_p, solv_p, adh_p = ci1.number_input("Ink/Kg", 15.0), ci2.number_input("Solvent/Kg", 6.0), ci3.number_input("Adhesive/Kg", 12.0)
+    # تم تعديل سعر الحبر إلى 14 ريال
+    ink_p = ci1.number_input("Ink/Kg", 14.0)
+    solv_p = ci2.number_input("Solvent/Kg", 6.0)
+    adh_p = ci3.number_input("Adhesive/Kg", 12.0)
 
 # --- TAB 2 ---
 with tabs[1]:
