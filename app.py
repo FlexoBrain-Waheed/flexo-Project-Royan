@@ -168,7 +168,6 @@ with tabs[3]:
 with tabs[4]:
     st.markdown("### ⚙️ 1. Global Production Settings")
     c_set1, c_set2, c_set3, c_set4, c_set5 = st.columns(5)
-    # تم رفع الإنتاج إلى 4500 طن
     t_tons = c_set1.number_input("🎯 Target Tons", 4500.0)
     std_w = c_set2.number_input("📏 Web Width (m)", 1.0)
     w_ink = c_set3.number_input("🎨 Wet Ink", 5.0)
@@ -179,7 +178,6 @@ with tabs[4]:
     st.markdown("### 📋 2. Product Portfolio (Recipes)")
     st.info(f"💡 **Tip:** Uncheck the 'Print' box for plain films. It will bypass ink costs and Flexo capacity!")
     
-    # تم تعديل النسب لتحقيق التوازن المثالي مع 4500 طن
     init_data = [
         {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 12.0},
         {"Product": "2 Lyr", "Print": True, "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 25, "Price": 13.0},
@@ -227,6 +225,9 @@ with tabs[4]:
         ci = ((w_ink/1000.0) * ink_p) if is_printed else 0.0
         cs = ((w_ink*0.5/1000.0) * solv_p) if is_printed else 0.0
         
+        rm_cost_sqm = c1 + c2 + c3
+        rm_cost_kg = rm_cost_sqm / (tg/1000.0) if tg > 0 else 0.0
+        
         cpk = (c1+c2+c3+ca+ci+cs)/(tg/1000.0) if tg > 0 else 0.0
         r_ton = t_tons * (r["Mix%"]/100.0)
         l_len = 0.0
@@ -262,14 +263,15 @@ with tabs[4]:
         dets.append({
             "Product": r["Product"], "Printed": "✅" if is_printed else "❌", "Tons": r_ton, 
             "Length(m)": l_len, "GSM": tg, "Flexo GSM": flexo_g,
-            "Cost/Kg": cpk, "Margin": r["Price"]-cpk
+            "RM Cost/Kg": rm_cost_kg, "Total Cost/Kg": cpk, "Margin": r["Price"]-cpk
         })
         
     st.markdown("### 📊 3. Production Breakdown & Margins")
     df_dets = pd.DataFrame(dets)
     col_t1, col_t2 = st.columns([6, 4])
     with col_t1:
-        st.dataframe(df_dets[["Product", "Printed", "Tons", "Length(m)", "GSM", "Flexo GSM", "Cost/Kg", "Margin"]].style.format({"Tons": "{:,.1f}", "Length(m)": "{:,.0f}", "GSM": "{:,.1f}", "Flexo GSM": "{:,.1f}", "Cost/Kg": "{:,.2f}", "Margin": "{:,.2f}"}), use_container_width=True)
+        # تمت إضافة عمود التكلفة الصافية للمواد الخام وعمود التكلفة الإجمالية
+        st.dataframe(df_dets[["Product", "Printed", "Tons", "Length(m)", "GSM", "RM Cost/Kg", "Total Cost/Kg", "Margin"]].style.format({"Tons": "{:,.1f}", "Length(m)": "{:,.0f}", "GSM": "{:,.1f}", "RM Cost/Kg": "{:,.2f}", "Total Cost/Kg": "{:,.2f}", "Margin": "{:,.2f}"}), use_container_width=True)
     with col_t2:
         if m_nd:
             df_m_nd = pd.DataFrame([{"Material Roll": k, "Linear Meters": v} for k, v in m_nd.items()])
