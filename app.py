@@ -15,7 +15,6 @@ with tabs[0]:
     
     st.markdown("#### 🧪 PE Extrusion Grades (أنواع البولي إيثيلين)")
     c4, c5, c6, c7 = st.columns(4)
-    # 🌟 التعديل هنا: 3 أنواع PE بأسعار مختلفة
     p_pe_lam = c4.number_input("PE Lam SAR (3 Lyr)", 4.0)
     p_pe_shrk = c5.number_input("PE Shrink SAR", 3.4)
     p_pe_bag = c6.number_input("PE Bag SAR", 3.0)
@@ -207,13 +206,13 @@ with tabs[4]:
     
     st.markdown("### 📋 2. Product Portfolio (Recipes)")
     
-    # 🌟 التعديل هنا: المنتجات تسحب الـ PE الصحيح لكل صنف
+    # 🌟 التعديل هنا: سماكة أكياس التسوق أصبحت 60 ميكرون
     init_data = [
         {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 13.0},
         {"Product": "2 Lyr", "Print": True, "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 25, "Price": 13.0},
         {"Product": "3 Lyr", "Print": True, "L1": "PET", "M1": 12, "L2": "ALU", "M2": 7, "L3": "PE Lam", "M3": 50, "Mix%": 5, "Price": 15.0},
         {"Product": "Shrink Plain", "Print": False, "L1": "PE Shrink", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 30, "Price": 5.0},
-        {"Product": "Printed Shop. Bag", "Print": True, "L1": "PE Bag", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 10.0}
+        {"Product": "Printed Shop. Bag", "Print": True, "L1": "PE Bag", "M1": 60, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 10.0}
     ]
     df_rec = st.data_editor(pd.DataFrame(init_data), num_rows="dynamic", use_container_width=True)
     
@@ -238,7 +237,6 @@ with tabs[4]:
         if r["M2"] > 0 and str(r["L2"]) != "None": lp += 1
         if r["M3"] > 0 and str(r["L3"]) != "None": lp += 1
         
-        # 🌟 محرك توجيه ذكي: أي طبقة تحتوي على "pe" تمر على الإكسترودر
         use_ext = any("pe" in str(r[l]).lower() for l in ["L1", "L2", "L3"])
         use_flx = is_printed
         use_slt = any(x in p_name for x in ["1 lyr", "2 lyr", "3 lyr", "bopp"])
@@ -257,7 +255,6 @@ with tabs[4]:
         flexo_g = (g1 + d_ink) if is_printed else 0.0 
         pe_layer_gsm = 0.0
         
-        # 🌟 حساب وزن الـ PE بدقة للماكينة
         if "pe" in str(r["L1"]).lower(): pe_layer_gsm += g1
         if "pe" in str(r["L2"]).lower(): pe_layer_gsm += g2
         if "pe" in str(r["L3"]).lower(): pe_layer_gsm += g3
@@ -433,9 +430,6 @@ with tabs[5]:
     )
     st.plotly_chart(fig_pie, use_container_width=True)
     
-    # ---------------------------------------------------------
-    # 🪄 محرك الإكسيل المتقدم (صفحة واحدة احترافية One-Pager)
-    # ---------------------------------------------------------
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
         wb = w.book
