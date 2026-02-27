@@ -203,7 +203,6 @@ with tabs[4]:
     
     temp_dets = []; m_nd = {}
     
-    # 🌟 الحلقة الأولى: تجميع الكميات والمتطلبات وحساب (تكلفة المواد المباشرة فقط)
     for _, r in df_rec.iterrows():
         is_printed = r.get("Print", True)
         
@@ -231,7 +230,6 @@ with tabs[4]:
         ci = ((w_ink/1000.0) * ink_p) if is_printed else 0.0
         cs = ((w_ink*0.5/1000.0) * solv_p) if is_printed else 0.0
         
-        # تكلفة المواد المباشرة (BOM Cost)
         c_mat_kg = (c1+c2+c3+ca+ci+cs)/(tg/1000.0) if tg > 0 else 0.0
         
         r_ton = t_tons * (r["Mix%"]/100.0)
@@ -271,7 +269,6 @@ with tabs[4]:
             "Mat Cost/Kg": c_mat_kg, "Price": r["Price"]
         })
         
-    # 🌟 حساب التكاليف التشغيلية (OPEX) للماكينات وتوزيعها على الكيلو
     esm = t_tons * (1000.0/w_gsm) * 1000.0 if w_gsm > 0 else 0.0
     ln_m = esm / std_w if std_w > 0 else esm
 
@@ -282,12 +279,9 @@ with tabs[4]:
     a_cons = a_an + a_bl_es + a_pl + a_tp
     a_hr = (payroll + adm_exp) * 12.0
     
-    # تكلفة التشغيل الكلية السنوية (بدون المواد الخام)
     total_conv_cost = a_cons + a_hr + t_pwr + ann_dep
-    # نصيب الكيلو الواحد من تكلفة التشغيل
     conv_cost_per_kg = total_conv_cost / (t_tons * 1000.0) if t_tons > 0 else 0.0
     
-    # 🌟 الحلقة الثانية: إنتاج الجدول النهائي بالتكاليف الشاملة والأرباح الحقيقية
     dets = []
     for d in temp_dets:
         total_true_cost = d["Mat Cost/Kg"] + conv_cost_per_kg
@@ -299,6 +293,8 @@ with tabs[4]:
             "Printed": "✅" if d["Printed"] else "❌",
             "Tons": d["Tons"],
             "Length(m)": d["Length(m)"],
+            "GSM": d["GSM"],                   # 🌟 تم إصلاح الخطأ وإضافة GSM هنا
+            "Flexo GSM": d["Flexo GSM"],       # 🌟 تمت إضافته للرجوع إليه عند الحاجة
             "Mat. Cost/Kg": d["Mat Cost/Kg"],
             "Mfg Cost/Kg": conv_cost_per_kg,
             "Total Cost/Kg": total_true_cost,
@@ -358,7 +354,6 @@ with tabs[4]:
 tot_rev = t_tons * 1000.0 * w_sp
 a_rm = t_tons * 1000.0 * w_rmc
 
-# إجمالي التكاليف = تكلفة المواد الخام + تكلفة التشغيل الكلية
 t_opex = a_rm + total_conv_cost
 n_prof = tot_rev - t_opex
 
@@ -385,9 +380,6 @@ with tabs[5]:
     )
     st.plotly_chart(fig_pie, use_container_width=True)
     
-    # ---------------------------------------------------------
-    # 🪄 محرك الإكسيل المتقدم (صفحة واحدة احترافية One-Pager)
-    # ---------------------------------------------------------
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
         wb = w.book
@@ -467,7 +459,6 @@ with tabs[5]:
         ws.write_formula(current_row, 1, f'=SUM(B{opex_start}:B{current_row})', highlight_fmt)
         current_row += 2
 
-        # 🌟 القسم الرابع المُحدث بالكامل: التكاليف الحقيقية والهامش الفعلي
         ws.write(current_row, 0, '4. PRICING & MARGINS PER PRODUCT (التسعير وهوامش الربح)', head_fmt)
         ws.write_row(current_row, 1, ['Target Tons', 'Mat. Cost/Kg', 'Mfg Cost/Kg', 'Total Cost/Kg', 'Actual Price', 'Net Profit/Kg', 'Margin %'], head_fmt)
         current_row += 1
@@ -520,8 +511,10 @@ with tabs[6]:
     cn = cq1.text_input("Customer", "Valued Client")
     pl = [i["Product"] for i in dets]
     sr = cq2.selectbox("Product", pl)
+    
     sc = next((i["Total Cost/Kg"] for i in dets if i["Product"] == sr), 0)
-    sg = next((i["GSM"] for i in dets if i["Product"] == sr), 0)
+    sg = next((i["GSM"] for i in dets if i["Product"] == sr), 0) # 🌟 يعمل هنا بنجاح تام
+    
     mp = cq1.number_input("Margin %", 5, 100, 20)
     if st.button("Generate Offer"):
         fp = sc * (1.0 + (mp/100.0))
