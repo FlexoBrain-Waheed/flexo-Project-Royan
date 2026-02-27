@@ -52,18 +52,21 @@ with tabs[1]:
         e_kg = st.number_input("Extruder Kg/h", value=500.0, step=10.0)
         e_kw = st.number_input("Extruder kW", value=300.0, step=5.0)
         e_pr = st.number_input("Extruder CAPEX", value=5000000.0, step=50000.0)
+        e_tons_cap = (e_kg * net_hrs) / 1000.0
     with m2:
         f_s = st.number_input("Flexo Speed", value=350.0, step=10.0)
         f_w = st.number_input("Flexo Width", value=1.0, step=0.1)
         f_e = st.slider("Flexo Eff%", 1, 100, 80)
         f_k = st.number_input("Flexo kW", value=150.0, step=5.0)
         f_pr = st.number_input("Flexo CAPEX", value=8000000.0, step=50000.0)
+        f_lm_cap = net_hrs * 60.0 * f_s * (f_e/100.0)
     with m3:
         l_s = st.number_input("Lam Speed", value=450.0, step=10.0)
         l_w = st.number_input("Lam Width", value=1.0, step=0.1)
         l_e = st.slider("Lam Eff%", 1, 100, 75)
         l_k = st.number_input("Lam kW", value=80.0, step=5.0)
         l_pr = st.number_input("Lam CAPEX", value=1200000.0, step=50000.0)
+        l_lm_cap = net_hrs * 60.0 * l_s * (l_e/100.0)
     m4, m5 = st.columns(2)
     with m4:
         s_s = st.number_input("Slit Speed", value=400.0, step=10.0)
@@ -71,12 +74,14 @@ with tabs[1]:
         s_e = st.slider("Slit Eff%", 1, 100, 50)
         s_k = st.number_input("Slit kW", value=40.0, step=5.0)
         s_pr = st.number_input("Slit CAPEX", value=800000.0, step=50000.0)
+        s_lm_cap = net_hrs * 60.0 * s_s * (s_e/100.0)
     with m5:
         b_q = st.number_input("Bag Mach Qty", value=5, step=1)
         b_s = st.number_input("Bag Speed m/m", value=75.0, step=5.0)
         b_e = st.slider("Bag Eff%", 1, 100, 85)
         b_k = st.number_input("Bag kW Total", value=75.0, step=5.0)
         b_pr = st.number_input("Bag CAPEX", value=500000.0, step=50000.0)
+        b_lm_cap = net_hrs * 60.0 * b_s * b_q * (b_e/100.0)
 
     u1, u2, u3 = st.columns(3)
     hng_pr = u1.number_input("Hangar CAPEX", value=4000000.0, step=50000.0)
@@ -93,19 +98,13 @@ with tabs[1]:
     ann_dep = dep_e + dep_f + dep_l + dep_s + dep_b + (hng_pr/hng_dep_y) + (chl_pr/chl_dep_y) + (cmp_pr/cmp_dep_y)
     t_capex = e_pr + f_pr + l_pr + s_pr + b_pr + hng_pr + chl_pr + cmp_pr
 
-    st.markdown("### 📊 Capacity Check (Tons/Year)")
-    chart_gsm = st.number_input("Estimated GSM for Capacity Graph", value=40.0, step=1.0)
+    st.markdown("### 📊 Capacity Check")
+    chart_gsm = st.number_input("Avg GSM for Chart", value=40.0, step=1.0)
     df_cap = pd.DataFrame({
-        "Machine": ["Extruder", "Flexo", "Lamination", "Slitter", "Bag Making"],
-        "Max Capacity (Tons)": [
-            (e_kg*net_hrs/1000), 
-            (net_hrs*60*f_s*(f_e/100)*f_w*chart_gsm/1000000),
-            (net_hrs*60*l_s*(l_e/100)*l_w*chart_gsm/1000000),
-            (net_hrs*60*s_s*(s_e/100)*s_w*chart_gsm/1000000),
-            (net_hrs*60*b_s*b_q*(b_e/100)*chart_gsm/1000000)
-        ]
+        "Machine": ["Extruder", "Flexo", "Lam", "Slitter", "BagMk"],
+        "Max Tons": [(e_kg*net_hrs/1000), (f_lm_cap*f_w*chart_gsm/1000000), (l_lm_cap*l_w*chart_gsm/1000000), (s_lm_cap*s_w*chart_gsm/1000000), (b_lm_cap*chart_gsm/1000000)]
     })
-    st.plotly_chart(px.bar(df_cap, x="Machine", y="Max Capacity (Tons)", color="Machine", text_auto='.0f'), use_container_width=True)
+    st.plotly_chart(px.bar(df_cap, x="Machine", y="Max Tons", color="Machine", text_auto='.0f'), use_container_width=True)
 
 # --- TAB 3: Consumables ---
 with tabs[2]:
@@ -155,6 +154,7 @@ with tabs[4]:
     
     w_gsm, t_flexo_lm, t_lam_sqm, tons_ext, tons_flx, tons_lam, tons_slt, tons_bag = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
     t_slt_lm, t_bag_lm, temp_dets = 0.0, 0.0, []
+    t_ink_k, t_slv_k, t_adh_k = 0.0, 0.0, 0.0
     
     for _, r in df_rec.iterrows():
         pn, is_p, r_ton = str(r["Product"]).lower(), r.get("Print", True), t_tons*(r["Mix%"]/100.0)
@@ -172,10 +172,15 @@ with tabs[4]:
         g1, g2, g3 = r["M1"]*mat_db[str(r["L1"])]["d"], r["M2"]*mat_db[str(r["L2"])]["d"], r["M3"]*mat_db[str(r["L3"])]["d"]
         tg = g1 + g2 + g3 + (lp*a_gsm) + (d_ink if is_p else 0)
         c_mat = ((g1/1000*mat_db[str(r["L1"])]["p"]) + (g2/1000*mat_db[str(r["L2"])]["p"]) + (g3/1000*mat_db[str(r["L3"])]["p"]) + (lp*a_gsm/1000*adh_p) + (w_ink/1000*ink_p if is_p else 0) + (w_ink*0.5/1000*solv_p if is_p else 0))/(tg/1000.0) if tg>0 else 0
-        l_len = (r_ton*1000000/tg)/std_w if tg>0 else 0
+        l_len = (r_ton*1000000/tg)/std_w if tg>0 and std_w>0 else 0
         
-        if is_p: t_flexo_lm += l_len
-        if lp > 0: t_lam_sqm += (l_len*std_w*lp)
+        if is_p: 
+            t_flexo_lm += l_len
+            t_ink_k += (l_len * std_w * w_ink) / 1000.0
+            t_slv_k += (l_len * std_w * w_ink * 0.5) / 1000.0
+        if lp > 0: 
+            t_lam_sqm += (l_len*std_w*lp)
+            t_adh_k += (l_len * std_w * a_gsm * lp) / 1000.0
         if u_slt: t_slt_lm += l_len
         if u_bag: t_bag_lm += l_len
         w_gsm += tg*(r["Mix%"]/100.0)
@@ -185,12 +190,12 @@ with tabs[4]:
     ln_m = (t_tons*1000/w_gsm*1000)/std_w if w_gsm>0 and std_w>0 else 0
     a_cons = ((ln_m/(an_lf*1000000.0))*an_pr*8.0 if an_lf>0 else 0) + ((ln_m/bl_lf)*(bl_qt*bl_pr + es_pr*8.0) if bl_lf>0 else 0) + ((t_flexo_lm/pl_lf)*pl_pr if pl_lf>0 else 0) + ((j_mo*12.0)*tp_qt*tp_pr)
     
-    re_h, rf_h, rl_h = (tons_ext*1000)/e_kg if e_kg>0 else 0, t_flexo_lm/(f_s*60*(f_e/100)) if f_s*f_e>0 else 0, (t_lam_sqm/std_w)/(l_s*60*(l_e/100)) if l_s*l_e>0 else 0
+    re_h, rf_h, rl_h = (tons_ext*1000)/e_kg if e_kg>0 else 0, t_flexo_lm/(f_s*60*(f_e/100)) if f_s*f_e>0 else 0, (t_lam_sqm/std_w)/(l_s*60*(l_e/100)) if l_s*l_e*std_w>0 else 0
     rs_h, rb_h = t_slt_lm/(s_s*60*(s_e/100)) if s_s*s_e>0 else 0, t_bag_lm/(b_s*60*b_q*(b_e/100)) if b_s*b_q*b_e>0 else 0
     
-    p_e, p_f, p_l, p_s, p_b = re_h*e_kw*kw_p + dep_e, rf_h*f_k*kw_p + dep_f + a_cons, rl_h*l_k*kw_p + dep_l, rs_h*s_k*kw_p + dep_s, rb_h*b_k*kw_p + dep_b
-    p_o = (payroll+adm_exp)*12 + (hng_pr/25) + (chl_pr/10) + (cmp_pr/10) + (net_hrs*(chl_k+cmp_k)*kw_p)
-    r_e, r_f, r_l, r_s, r_b, r_o = p_e/(tons_ext*1000) if tons_ext>0 else 0, p_f/(tons_flx*1000) if tons_flx>0 else 0, p_l/(tons_lam*1000) if tons_lam>0 else 0, p_s/(tons_slt*1000) if tons_slt>0 else 0, p_b/(tons_bag*1000) if tons_bag>0 else 0, p_o/(t_tons*1000) if t_tons>0 else 0
+    pe, pf, pl, ps, pb = re_h*e_kw*kw_p + dep_e, rf_h*f_k*kw_p + dep_f + a_cons, rl_h*l_k*kw_p + dep_l, rs_h*s_k*kw_p + dep_s, rb_h*b_k*kw_p + dep_b
+    po = (payroll+adm_exp)*12 + (hng_pr/25) + (chl_pr/10) + (cmp_pr/10) + (net_hrs*(chl_k+cmp_k)*kw_p)
+    r_e, r_f, r_l, r_s, r_b, r_o = pe/(tons_ext*1000) if tons_ext>0 else 0, pf/(tons_flx*1000) if tons_flx>0 else 0, pl/(tons_lam*1000) if tons_lam>0 else 0, ps/(tons_slt*1000) if tons_slt>0 else 0, pb/(tons_bag*1000) if tons_bag>0 else 0, po/(t_tons*1000) if t_tons>0 else 0
 
     dets = []
     for d in temp_dets:
@@ -202,7 +207,6 @@ with tabs[4]:
         t_cost = d["MatCost"] + c_e + c_f + c_l + c_s + c_b + r_o
         m_pct = (d["Price"] - t_cost) / d["Price"] if d["Price"] > 0 else 0
         
-        # 🌟 تمت إعادة جميع أعمدة التكاليف التفصيلية هنا 🌟
         dets.append({
             "Product": d["Product"], "Tons": d["Tons"], "MatCost": d["MatCost"], 
             "Extrdr": c_e, "Flexo": c_f, "Lam": c_l, "Slit": c_s, "BagMk": c_b, "OH": r_o,
@@ -212,16 +216,45 @@ with tabs[4]:
     st.markdown("### 📊 3. Detailed ABC Costing (SAR/Kg)")
     df_show = pd.DataFrame(dets)
     
-    # تنسيق الجدول بدقة (النسبة المئوية تظهر بعلامة % والأرقام بفاصلتين)
     format_dict = {
         "Tons": "{:,.1f}", "MatCost": "{:,.2f}", "Extrdr": "{:,.2f}", "Flexo": "{:,.2f}", 
-        "Lam": "{:,.2f}", "Slit": "{:,.2f}", "BagMk": "{:,.2f}", "OH": "{:,.2f}", 
+        "Lam": "{:,.2f}", "Slit": "{:,.3f}", "BagMk": "{:,.2f}", "OH": "{:,.2f}", 
         "TotalCost": "{:,.2f}", "Price": "{:,.2f}", "Profit": "{:,.2f}", "Margin%": "{:,.2%}"
     }
     
     st.dataframe(df_show[["Product", "Tons", "MatCost", "Extrdr", "Flexo", "Lam", "Slit", "BagMk", "OH", "TotalCost", "Price", "Profit", "Margin%"]].style.format(format_dict), use_container_width=True)
     
-    st.markdown("### 💰 Net Profit Margin Chart")
+    # 🌟 إعادة قسم الكيماويات الشهرية المفقود 🌟
+    st.markdown("### 🧪 4. Monthly Chemicals Estimate")
+    c_ch1, c_ch2, c_ch3 = st.columns(3)
+    c_ch1.metric("🎨 Ink Kg/Mo", f"{t_ink_k/12:,.0f}")
+    c_ch2.metric("🧪 Solv Kg/Mo", f"{t_slv_k/12:,.0f}")
+    c_ch3.metric("🍯 Adh Kg/Mo", f"{t_adh_k/12:,.0f}")
+
+    # 🌟 إعادة قسم موازنة الخطوط والمربعات الملونة المفقودة (Exact Line Balancing) 🌟
+    st.markdown("### 🚦 5. Exact Line Balancing (Bottleneck Check)")
+    cb1, cb2, cb3, cb4, cb5 = st.columns(5)
+    
+    if tons_ext <= e_tons_cap: cb1.success(f"Extruder\n\nCap: {e_tons_cap:,.0f} T\n\nReq: {tons_ext:,.0f} T")
+    else: cb1.error(f"Extruder\n\nCap: {e_tons_cap:,.0f} T\n\nReq: {tons_ext:,.0f} T")
+    
+    req_f_lm_m, cap_f_lm_m = t_flexo_lm / 1000000, f_lm_cap / 1000000
+    if t_flexo_lm <= f_lm_cap: cb2.success(f"Flexo (M m)\n\nCap: {cap_f_lm_m:,.2f}\n\nReq: {req_f_lm_m:,.2f}")
+    else: cb2.error(f"Flexo (M m)\n\nCap: {cap_f_lm_m:,.2f}\n\nReq: {req_f_lm_m:,.2f}")
+    
+    req_l_lm_m, cap_l_lm_m = (t_lam_sqm/std_w if std_w>0 else 0) / 1000000, l_lm_cap / 1000000
+    if (t_lam_sqm/std_w if std_w>0 else 0) <= l_lm_cap: cb3.success(f"Lam (M m)\n\nCap: {cap_l_lm_m:,.2f}\n\nReq: {req_l_lm_m:,.2f}")
+    else: cb3.error(f"Lam (M m)\n\nCap: {cap_l_lm_m:,.2f}\n\nReq: {req_l_lm_m:,.2f}")
+
+    req_s_lm_m, cap_s_lm_m = t_slt_lm / 1000000, s_lm_cap / 1000000
+    if t_slt_lm <= s_lm_cap: cb4.success(f"Slit (M m)\n\nCap: {cap_s_lm_m:,.2f}\n\nReq: {req_s_lm_m:,.2f}")
+    else: cb4.error(f"Slit (M m)\n\nCap: {cap_s_lm_m:,.2f}\n\nReq: {req_s_lm_m:,.2f}")
+
+    req_b_lm_m, cap_b_lm_m = t_bag_lm / 1000000, b_lm_cap / 1000000
+    if t_bag_lm <= b_lm_cap: cb5.success(f"BagMk (M m)\n\nCap: {cap_b_lm_m:,.2f}\n\nReq: {req_b_lm_m:,.2f}")
+    else: cb5.error(f"BagMk (M m)\n\nCap: {cap_b_lm_m:,.2f}\n\nReq: {req_b_lm_m:,.2f}")
+    
+    st.markdown("### 💰 6. Net Profit Margin Chart")
     st.plotly_chart(px.bar(df_show, x="Product", y="Profit", color="Product", text_auto=".2f"), use_container_width=True)
 
 # --- TAB 6 & 7: P&L Summary ---
