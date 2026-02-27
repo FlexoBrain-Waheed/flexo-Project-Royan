@@ -30,46 +30,71 @@ with tabs[0]:
     }
     st.markdown("---")
     ci1, ci2, ci3 = st.columns(3)
-    ink_p, solv_p, adh_p = ci1.number_input("Ink/Kg", 14.0), ci2.number_input("Solvent/Kg", 6.0), ci3.number_input("Adhesive/Kg", 12.0)
+    ink_p = ci1.number_input("Ink/Kg", value=14.0, step=0.5)
+    solv_p = ci2.number_input("Solvent/Kg", value=6.0, step=0.5)
+    adh_p = ci3.number_input("Adhesive/Kg", value=12.0, step=0.5)
 
-# --- TAB 2: Production & Capacity Chart ---
+# --- TAB 2: Production ---
 with tabs[1]:
     cw1, cw2, cw3 = st.columns(3)
-    d_yr, s_day, h_sh = cw1.number_input("Days/Yr", 300), cw1.number_input("Shifts/Day", 2), cw1.number_input("Hrs/Shift", 12)
-    j_mo, c_hrs, kw_p = cw2.number_input("Jobs/Mo", 75), cw2.number_input("C.O. Hrs", 2.0), cw3.number_input("SAR/kWh", 0.18)
+    d_yr = cw1.number_input("Days/Yr", value=300, step=1)
+    s_day = cw1.number_input("Shifts/Day", value=2, step=1)
+    h_sh = cw1.number_input("Hrs/Shift", value=12, step=1)
+    j_mo = cw2.number_input("Jobs/Mo", value=75, step=1)
+    c_hrs = cw2.number_input("C.O. Hrs", value=2.0, step=0.5)
+    kw_p = cw3.number_input("SAR/kWh", value=0.18, step=0.01)
     net_hrs = (d_yr * s_day * h_sh) - (j_mo * 12 * c_hrs)
     st.success(f"✅ Net Running Hours / Year: {net_hrs:,.0f}")
     
     st.markdown("### 1. Machine Parameters")
     m1, m2, m3 = st.columns(3)
     with m1:
-        e_kg, e_kw, e_pr = st.number_input("Extruder Kg/h", 500.0), st.number_input("Extruder kW", 300.0), st.number_input("Extruder CAPEX", 5000000.0)
+        e_kg = st.number_input("Extruder Kg/h", value=500.0, step=10.0)
+        e_kw = st.number_input("Extruder kW", value=300.0, step=5.0)
+        e_pr = st.number_input("Extruder CAPEX", value=5000000.0, step=50000.0)
     with m2:
-        f_s, f_w, f_e = st.number_input("Flexo Speed", 350.0), st.number_input("Flexo Width", 1.0), st.slider("Flexo Eff%", 1, 100, 80)
-        f_k, f_pr = st.number_input("Flexo kW", 150.0), st.number_input("Flexo CAPEX", 8000000.0)
+        f_s = st.number_input("Flexo Speed", value=350.0, step=10.0)
+        f_w = st.number_input("Flexo Width", value=1.0, step=0.1)
+        f_e = st.slider("Flexo Eff%", 1, 100, 80)
+        f_k = st.number_input("Flexo kW", value=150.0, step=5.0)
+        f_pr = st.number_input("Flexo CAPEX", value=8000000.0, step=50000.0)
     with m3:
-        l_s, l_w, l_e = st.number_input("Lam Speed", 450.0), st.number_input("Lam Width", 1.0), st.slider("Lam Eff%", 1, 100, 75)
-        l_k, l_pr = st.number_input("Lam kW", 80.0), st.number_input("Lam CAPEX", 1200000.0)
+        l_s = st.number_input("Lam Speed", value=450.0, step=10.0)
+        l_w = st.number_input("Lam Width", value=1.0, step=0.1)
+        l_e = st.slider("Lam Eff%", 1, 100, 75)
+        l_k = st.number_input("Lam kW", value=80.0, step=5.0)
+        l_pr = st.number_input("Lam CAPEX", value=1200000.0, step=50000.0)
     m4, m5 = st.columns(2)
     with m4:
-        s_s, s_w, s_e = st.number_input("Slit Speed", 400.0), st.number_input("Slit Width", 1.0), st.slider("Slit Eff%", 1, 100, 50)
-        s_k, s_pr = st.number_input("Slit kW", 40.0), st.number_input("Slit CAPEX", 800000.0)
+        s_s = st.number_input("Slit Speed", value=400.0, step=10.0)
+        s_w = st.number_input("Slit Width", value=1.0, step=0.1)
+        s_e = st.slider("Slit Eff%", 1, 100, 50)
+        s_k = st.number_input("Slit kW", value=40.0, step=5.0)
+        s_pr = st.number_input("Slit CAPEX", value=800000.0, step=50000.0)
     with m5:
-        b_q, b_s, b_e = st.number_input("Bag Mach Qty", 5), st.number_input("Bag Speed m/m", 75.0), st.slider("Bag Eff%", 1, 100, 85)
-        b_k, b_pr = st.number_input("Bag kW Total", 75.0), st.number_input("Bag CAPEX", 500000.0)
+        b_q = st.number_input("Bag Mach Qty", value=5, step=1)
+        b_s = st.number_input("Bag Speed m/m", value=75.0, step=5.0)
+        b_e = st.slider("Bag Eff%", 1, 100, 85)
+        b_k = st.number_input("Bag kW Total", value=75.0, step=5.0)
+        b_pr = st.number_input("Bag CAPEX", value=500000.0, step=50000.0)
 
     u1, u2, u3 = st.columns(3)
-    hng_pr, hng_dep_y = u1.number_input("Hangar CAPEX", 4000000.0), u1.number_input("Hangar Depr Yrs", 25.0)
-    chl_k, chl_pr, chl_dep_y = u2.number_input("Chiller kW", 50.0), u2.number_input("Chiller CAPEX", 500000.0), u2.number_input("Chiller Depr Yrs", 10.0)
-    cmp_k, cmp_pr, cmp_dep_y = u3.number_input("Compressor kW", 30.0), u3.number_input("Compressor CAPEX", 250000.0), u3.number_input("Comp. Depr Yrs", 10.0)
+    hng_pr = u1.number_input("Hangar CAPEX", value=4000000.0, step=50000.0)
+    hng_dep_y = u1.number_input("Hangar Depr Yrs", value=25.0, step=1.0)
+    chl_k = u2.number_input("Chiller kW", value=50.0, step=5.0)
+    chl_pr = u2.number_input("Chiller CAPEX", value=500000.0, step=10000.0)
+    chl_dep_y = u2.number_input("Chiller Depr Yrs", value=10.0, step=1.0)
+    cmp_k = u3.number_input("Compressor kW", value=30.0, step=5.0)
+    cmp_pr = u3.number_input("Compressor CAPEX", value=250000.0, step=10000.0)
+    cmp_dep_y = u3.number_input("Comp. Depr Yrs", value=10.0, step=1.0)
     
-    mac_dep_y = st.number_input("Machines Depreciation Yrs", 10.0)
+    mac_dep_y = st.number_input("Machines Depreciation Yrs", value=10.0, step=1.0)
     dep_e, dep_f, dep_l, dep_s, dep_b = e_pr/mac_dep_y, f_pr/mac_dep_y, l_pr/mac_dep_y, s_pr/mac_dep_y, b_pr/mac_dep_y
     ann_dep = dep_e + dep_f + dep_l + dep_s + dep_b + (hng_pr/hng_dep_y) + (chl_pr/chl_dep_y) + (cmp_pr/cmp_dep_y)
     t_capex = e_pr + f_pr + l_pr + s_pr + b_pr + hng_pr + chl_pr + cmp_pr
 
     st.markdown("### 📊 Capacity Check (Tons/Year)")
-    chart_gsm = st.number_input("Estimated GSM for Capacity Graph", 40.0)
+    chart_gsm = st.number_input("Estimated GSM for Capacity Graph", value=40.0, step=1.0)
     df_cap = pd.DataFrame({
         "Machine": ["Extruder", "Flexo", "Lamination", "Slitter", "Bag Making"],
         "Max Capacity (Tons)": [
@@ -84,25 +109,41 @@ with tabs[1]:
 
 # --- TAB 3: Consumables ---
 with tabs[2]:
+    st.subheader("🛠️ Consumables")
     cc1, cc2, cc3 = st.columns(3)
-    pl_pr, pl_lf = cc1.number_input("Plate SAR", 2500.0), cc1.number_input("Plate Life(m)", 400000.0)
-    an_pr, an_lf = cc1.number_input("Anilox SAR", 15000.0), cc1.number_input("Anilox Life(M)", 200.0)
-    bl_pr, bl_qt, bl_lf = cc2.number_input("Blade SAR/m", 12.0), cc2.number_input("Blade m/Job", 21.0), cc2.number_input("Blade Life(m)", 33000.0)
-    es_pr = cc2.number_input("EndSeal SAR", 150.0)
-    tp_pr, tp_qt = cc3.number_input("Tape SAR/m²", 85.0), cc3.number_input("Tape m²/Job", 6.0)
+    pl_pr = cc1.number_input("Plate SAR", value=2500.0, step=100.0)
+    pl_lf = cc1.number_input("Plate Life(m)", value=400000.0, step=10000.0)
+    an_pr = cc1.number_input("Anilox SAR", value=15000.0, step=500.0)
+    an_lf = cc1.number_input("Anilox Life(M)", value=200.0, step=10.0)
+    bl_pr = cc2.number_input("Blade SAR/m", value=12.0, step=1.0)
+    bl_qt = cc2.number_input("Blade m/Job", value=21.0, step=1.0)
+    bl_lf = cc2.number_input("Blade Life(m)", value=33000.0, step=1000.0)
+    es_pr = cc2.number_input("EndSeal SAR", value=150.0, step=10.0)
+    tp_pr = cc3.number_input("Tape SAR/m²", value=85.0, step=5.0)
+    tp_qt = cc3.number_input("Tape m²/Job", value=6.0, step=0.5)
 
 # --- TAB 4: HR ---
 with tabs[3]:
-    payroll = (st.number_input("Eng Total", 24000)+st.number_input("Op Total", 27000)+st.number_input("Wrk Total", 25000)+st.number_input("Adm Total", 40000)+st.number_input("Saudi Total", 20000))
-    adm_exp = st.number_input("Monthly Admin Exp", 40000)
+    st.header("HR & OPEX")
+    payroll = (st.number_input("Eng Sal Total", value=24000, step=1000) + 
+               st.number_input("Op Sal Total", value=27000, step=1000) + 
+               st.number_input("Wrk Sal Total", value=25000, step=1000) + 
+               st.number_input("Adm Sal Total", value=40000, step=1000) + 
+               st.number_input("Saudi Sal Total", value=20000, step=1000))
+    adm_exp = st.number_input("Monthly Admin Exp", value=40000, step=1000)
 
-# --- TAB 5: Recipes & Profit Chart ---
+# --- TAB 5: Recipes & Detailed Costing ---
 with tabs[4]:
-    st.markdown("### ⚙️ 1. Global Production Settings")
+    st.markdown("### ⚙️ 1. Global Settings")
     t_tons = st.number_input("🎯 Target Tons", value=2500.0, step=100.0)
-    std_w, w_ink, i_loss, a_gsm = st.number_input("Web Width", 1.0), st.number_input("Wet Ink", 5.0), st.number_input("Loss%", 40.0), st.number_input("Adh GSM", 1.8)
+    c_s1, c_s2, c_s3, c_s4 = st.columns(4)
+    std_w = c_s1.number_input("Web Width", value=1.0, step=0.1)
+    w_ink = c_s2.number_input("Wet Ink", value=5.0, step=0.1)
+    i_loss = c_s3.number_input("Loss%", value=40.0, step=1.0)
+    a_gsm = c_s4.number_input("Adh GSM", value=1.8, step=0.1)
     d_ink = w_ink * (1.0 - (i_loss/100.0))
     
+    st.markdown("### 📋 2. Product Portfolio")
     init_data = [
         {"Product": "1 Lyr", "Print": True, "L1": "BOPP", "M1": 40, "L2": "None", "M2": 0, "L3": "None", "M3": 0, "Mix%": 20, "Price": 13.0},
         {"Product": "2 Lyr", "Print": True, "L1": "BOPP", "M1": 20, "L2": "BOPP", "M2": 20, "L3": "None", "M3": 0, "Mix%": 25, "Price": 13.0},
@@ -132,34 +173,58 @@ with tabs[4]:
         tg = g1 + g2 + g3 + (lp*a_gsm) + (d_ink if is_p else 0)
         c_mat = ((g1/1000*mat_db[str(r["L1"])]["p"]) + (g2/1000*mat_db[str(r["L2"])]["p"]) + (g3/1000*mat_db[str(r["L3"])]["p"]) + (lp*a_gsm/1000*adh_p) + (w_ink/1000*ink_p if is_p else 0) + (w_ink*0.5/1000*solv_p if is_p else 0))/(tg/1000.0) if tg>0 else 0
         l_len = (r_ton*1000000/tg)/std_w if tg>0 else 0
+        
         if is_p: t_flexo_lm += l_len
         if lp > 0: t_lam_sqm += (l_len*std_w*lp)
         if u_slt: t_slt_lm += l_len
         if u_bag: t_bag_lm += l_len
         w_gsm += tg*(r["Mix%"]/100.0)
-        temp_dets.append({"Product":r["Product"],"Printed":is_p,"Tons":r_ton,"GSM":tg,"MatCost":c_mat,"Price":r["Price"],"u_ext":u_ext,"lp":lp,"u_slt":u_slt,"u_bag":u_bag,"l_len":l_len})
+        
+        temp_dets.append({"Product":r["Product"],"Printed":is_p,"Tons":r_ton,"GSM":tg,"MatCost":c_mat,"Price":r["Price"],"u_ext":u_ext,"lp":lp,"u_slt":u_slt,"u_bag":u_bag})
 
-    ln_m = (t_tons*1000/w_gsm*1000)/std_w if w_gsm>0 else 0
+    ln_m = (t_tons*1000/w_gsm*1000)/std_w if w_gsm>0 and std_w>0 else 0
     a_cons = ((ln_m/(an_lf*1000000.0))*an_pr*8.0 if an_lf>0 else 0) + ((ln_m/bl_lf)*(bl_qt*bl_pr + es_pr*8.0) if bl_lf>0 else 0) + ((t_flexo_lm/pl_lf)*pl_pr if pl_lf>0 else 0) + ((j_mo*12.0)*tp_qt*tp_pr)
     
     re_h, rf_h, rl_h = (tons_ext*1000)/e_kg if e_kg>0 else 0, t_flexo_lm/(f_s*60*(f_e/100)) if f_s*f_e>0 else 0, (t_lam_sqm/std_w)/(l_s*60*(l_e/100)) if l_s*l_e>0 else 0
     rs_h, rb_h = t_slt_lm/(s_s*60*(s_e/100)) if s_s*s_e>0 else 0, t_bag_lm/(b_s*60*b_q*(b_e/100)) if b_s*b_q*b_e>0 else 0
     
     p_e, p_f, p_l, p_s, p_b = re_h*e_kw*kw_p + dep_e, rf_h*f_k*kw_p + dep_f + a_cons, rl_h*l_k*kw_p + dep_l, rs_h*s_k*kw_p + dep_s, rb_h*b_k*kw_p + dep_b
-    p_o = (payroll+adm_exp)*12 + (hng_pr/25) + (chl_pr/10) + (cmp_pr/10) + (net_hrs*80*kw_p)
+    p_o = (payroll+adm_exp)*12 + (hng_pr/25) + (chl_pr/10) + (cmp_pr/10) + (net_hrs*(chl_k+cmp_k)*kw_p)
     r_e, r_f, r_l, r_s, r_b, r_o = p_e/(tons_ext*1000) if tons_ext>0 else 0, p_f/(tons_flx*1000) if tons_flx>0 else 0, p_l/(tons_lam*1000) if tons_lam>0 else 0, p_s/(tons_slt*1000) if tons_slt>0 else 0, p_b/(tons_bag*1000) if tons_bag>0 else 0, p_o/(t_tons*1000) if t_tons>0 else 0
 
     dets = []
     for d in temp_dets:
-        tc = d["MatCost"] + (r_e if d["u_ext"] else 0) + (r_f if d["Printed"] else 0) + (r_l*d["lp"]) + (r_s if d["u_slt"] else 0) + (r_b if d["u_bag"] else 0) + r_o
-        dets.append({"Product":d["Product"],"Tons":d["Tons"],"MatCost":d["MatCost"],"TotalCost":tc,"Price":d["Price"],"Profit":d["Price"]-tc,"GSM":d["GSM"]})
+        c_e = r_e if d["u_ext"] else 0
+        c_f = r_f if d["Printed"] else 0
+        c_l = r_l * d["lp"]
+        c_s = r_s if d["u_slt"] else 0
+        c_b = r_b if d["u_bag"] else 0
+        t_cost = d["MatCost"] + c_e + c_f + c_l + c_s + c_b + r_o
+        m_pct = (d["Price"] - t_cost) / d["Price"] if d["Price"] > 0 else 0
+        
+        # 🌟 تمت إعادة جميع أعمدة التكاليف التفصيلية هنا 🌟
+        dets.append({
+            "Product": d["Product"], "Tons": d["Tons"], "MatCost": d["MatCost"], 
+            "Extrdr": c_e, "Flexo": c_f, "Lam": c_l, "Slit": c_s, "BagMk": c_b, "OH": r_o,
+            "TotalCost": t_cost, "Price": d["Price"], "Profit": d["Price"]-t_cost, "Margin%": m_pct, "GSM": d["GSM"]
+        })
     
-    st.markdown("### 💰 Net Profit per Product (SAR/Kg)")
-    st.plotly_chart(px.bar(pd.DataFrame(dets), x="Product", y="Profit", color="Product", text_auto=".2f"), use_container_width=True)
-    num_cols = ["Tons", "MatCost", "TotalCost", "Price", "Profit"]
-    st.dataframe(pd.DataFrame(dets)[["Product"]+num_cols].style.format({c: "{:,.2f}" for c in num_cols}), use_container_width=True)
+    st.markdown("### 📊 3. Detailed ABC Costing (SAR/Kg)")
+    df_show = pd.DataFrame(dets)
+    
+    # تنسيق الجدول بدقة (النسبة المئوية تظهر بعلامة % والأرقام بفاصلتين)
+    format_dict = {
+        "Tons": "{:,.1f}", "MatCost": "{:,.2f}", "Extrdr": "{:,.2f}", "Flexo": "{:,.2f}", 
+        "Lam": "{:,.2f}", "Slit": "{:,.2f}", "BagMk": "{:,.2f}", "OH": "{:,.2f}", 
+        "TotalCost": "{:,.2f}", "Price": "{:,.2f}", "Profit": "{:,.2f}", "Margin%": "{:,.2%}"
+    }
+    
+    st.dataframe(df_show[["Product", "Tons", "MatCost", "Extrdr", "Flexo", "Lam", "Slit", "BagMk", "OH", "TotalCost", "Price", "Profit", "Margin%"]].style.format(format_dict), use_container_width=True)
+    
+    st.markdown("### 💰 Net Profit Margin Chart")
+    st.plotly_chart(px.bar(df_show, x="Product", y="Profit", color="Product", text_auto=".2f"), use_container_width=True)
 
-# --- TAB 6: P&L Summary ---
+# --- TAB 6 & 7: P&L Summary ---
 with tabs[5]:
     total_rev = sum(d['Price']*d['Tons']*1000 for d in dets)
     total_all_cost = sum(d['TotalCost']*d['Tons']*1000 for d in dets)
@@ -171,11 +236,12 @@ with tabs[5]:
     
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
-        pd.DataFrame(dets).to_excel(w, sheet_name='Analysis')
+        df_show.drop(columns=['GSM']).to_excel(w, sheet_name='Costing_Analysis', index=False)
     st.download_button("📥 Download Excel Summary", buf.getvalue(), "Royan_Summary.xlsx", use_container_width=True)
 
 with tabs[6]:
     st.header("Commercial Offer")
-    row = next(i for i in dets if i["Product"] == st.selectbox("Product", [d['Product'] for d in dets]))
+    sr = st.selectbox("Select Product", [d['Product'] for d in dets])
+    row = next(i for i in dets if i["Product"] == sr)
     if st.button("Generate"):
-        st.info(f"**Customer:** Valued Client\n**Product:** {row['Product']}\n**Price:** SAR {row['Price']:,.2f}/Kg\n\n*Royan Plant Simulator*")
+        st.info(f"**Customer:** Valued Client\n\n**Product:** {row['Product']} ({row['GSM']:,.1f} g/m²)\n\n**Price:** SAR {row['Price']:,.2f} / Kg\n\n*Waheed Waleed Malik, Royan*")
