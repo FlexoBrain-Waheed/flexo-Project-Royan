@@ -127,7 +127,6 @@ with tabs[3]:
     
     st.markdown("#### 👥 1. Manpower & Payroll (القوى العاملة)")
     h1, h2, h3 = st.columns(3)
-    
     with h1:
         st.markdown("**Production (Direct Labor)**")
         eng_q = st.number_input("Engineers Qty", value=3, step=1)
@@ -145,12 +144,24 @@ with tabs[3]:
         sau_s = st.number_input("Saudi Salary", value=4000, step=500)
         
     with h3:
-        st.markdown("**Overheads & Govt Fees**")
-        adm_exp = st.number_input("Monthly Admin Exp (Rent, Office, etc.)", value=40000, step=1000)
-        st.info("Hidden Costs: Iqama, GOSI, Medical Ins, Flights, EOSB")
+        st.markdown("**Govt Fees & Benefits**")
+        st.info("Iqama, GOSI, Medical Ins, Flights, EOSB")
         hidden_cost_pct = st.slider("Hidden Benefits % (Over Base Salary)", 0, 50, 20)
 
-    # Calculations for HR
+    # 🌟 التفكيك الجديد للمصاريف الإدارية 🌟
+    st.markdown("#### 🏢 2. General & Admin Expenses (SG&A - Monthly)")
+    o1, o2, o3 = st.columns(3)
+    rent_exp = o1.number_input("Land Rent & Licenses", value=8000, step=500)
+    sales_exp = o1.number_input("Sales, Travel & Marketing", value=12000, step=500)
+    it_exp = o2.number_input("IT, ERP & Software", value=5000, step=500)
+    fac_exp = o2.number_input("Office Utilities & Maint.", value=5000, step=500)
+    ins_exp = o3.number_input("Asset Insurance", value=6000, step=500)
+    misc_exp = o3.number_input("Consulting, Audit & Misc", value=4000, step=500)
+
+    # حساب إجمالي المصاريف الإدارية
+    adm_exp = rent_exp + sales_exp + it_exp + fac_exp + ins_exp + misc_exp
+
+    # حساب إجمالي الرواتب والموظفين
     t_eng = eng_q * eng_s
     t_opr = opr_q * opr_s
     t_wrk = wrk_q * wrk_s
@@ -159,25 +170,30 @@ with tabs[3]:
     
     base_payroll = t_eng + t_opr + t_wrk + t_adm + t_sau
     gov_benefits_cost = base_payroll * (hidden_cost_pct / 100.0)
-    payroll = base_payroll + gov_benefits_cost # Final payroll passed to Tab 5
+    payroll = base_payroll + gov_benefits_cost 
     
     total_headcount = eng_q + opr_q + wrk_q + adm_q + sau_q
     saudization_pct = (sau_q / total_headcount) if total_headcount > 0 else 0
     
     st.markdown("---")
-    st.markdown("#### 📊 HR Dashboard")
+    st.markdown("#### 📊 HR & OPEX Dashboard")
     hm1, hm2, hm3, hm4 = st.columns(4)
     hm1.metric("👥 Total Headcount", f"{total_headcount} Emp")
-    hm2.metric("🇸🇦 Saudization %", f"{saudization_pct:.1%}", delta="Nitaqat Check")
-    hm3.metric("💸 Total Monthly Payroll", f"SAR {payroll:,.0f}")
-    hm4.metric("🏢 Total Monthly OPEX", f"SAR {payroll + adm_exp:,.0f}")
+    hm2.metric("🇸🇦 Saudization %", f"{saudization_pct:.1%}")
+    hm3.metric("💸 Monthly Payroll (w/ Benefits)", f"SAR {payroll:,.0f}")
+    hm4.metric("🏢 Monthly Admin Exp (SG&A)", f"SAR {adm_exp:,.0f}")
     
-    # Chart for OPEX Breakdown
+    # رسم بياني لتوزيع المصاريف التشغيلية شهرياً
     df_hr = pd.DataFrame({
-        "Category": ["Engineers", "Operators", "Workers", "Admin", "Saudis", "Gov Fees/Benefits", "Admin Expenses"],
-        "Monthly Cost": [t_eng, t_opr, t_wrk, t_adm, t_sau, gov_benefits_cost, adm_exp]
+        "Category": ["Engineers", "Operators", "Workers", "Admin", "Saudis", "Gov Fees/Benefits", 
+                     "Rent & Licenses", "Sales & Mktg", "IT & Software", "Utilities & Maint", "Insurance", "Misc/Audit"],
+        "Monthly Cost": [t_eng, t_opr, t_wrk, t_adm, t_sau, gov_benefits_cost, 
+                         rent_exp, sales_exp, it_exp, fac_exp, ins_exp, misc_exp]
     })
-    fig_hr = px.pie(df_hr, names="Category", values="Monthly Cost", title="Monthly OPEX Breakdown", hole=0.4)
+    # إخفاء البنود الصفرية لتنظيف الرسم البياني
+    df_hr = df_hr[df_hr["Monthly Cost"] > 0]
+    
+    fig_hr = px.pie(df_hr, names="Category", values="Monthly Cost", title="Total Monthly OPEX Breakdown (Payroll + SG&A)", hole=0.4)
     st.plotly_chart(fig_hr, use_container_width=True)
 
 # --- TAB 5: Recipes & Detailed Costing ---
@@ -294,28 +310,32 @@ with tabs[4]:
     }
     st.dataframe(df_show[["Product", "Tons", "Waste%", "NetMatCost", "Extrdr", "Flexo", "Lam", "Slit", "BagMk", "OH", "TotalCost", "Price", "Profit", "Margin%"]].style.format(format_dict), use_container_width=True)
     
-    st.markdown("### 🧪 5. Monthly Chemicals")
+    st.markdown("### 🧪 5. Monthly Chemicals Estimate")
     c_ch1, c_ch2, c_ch3 = st.columns(3)
     c_ch1.metric("🎨 Ink Kg/Mo", f"{t_ink_k/12:,.0f}")
     c_ch2.metric("🧪 Solv Kg/Mo", f"{t_slv_k/12:,.0f}")
     c_ch3.metric("🍯 Adh Kg/Mo", f"{t_adh_k/12:,.0f}")
 
-    st.markdown("### 🚦 6. Line Balancing (Bottleneck Check)")
+    st.markdown("### 🚦 6. Exact Line Balancing (Bottleneck Check)")
     cb1, cb2, cb3, cb4, cb5 = st.columns(5)
     if tons_ext <= e_tons_cap: cb1.success(f"Extruder\n\nCap: {e_tons_cap:,.0f} T\n\nReq: {tons_ext:,.0f} T")
     else: cb1.error(f"Extruder\n\nCap: {e_tons_cap:,.0f} T\n\nReq: {tons_ext:,.0f} T")
     
-    if t_flexo_lm <= f_lm_cap: cb2.success(f"Flexo (M m)\n\nCap: {f_lm_cap/1000000:,.2f}\n\nReq: {t_flexo_lm/1000000:,.2f}")
-    else: cb2.error(f"Flexo (M m)\n\nCap: {f_lm_cap/1000000:,.2f}\n\nReq: {t_flexo_lm/1000000:,.2f}")
+    req_f_lm_m, cap_f_lm_m = t_flexo_lm / 1000000, f_lm_cap / 1000000
+    if t_flexo_lm <= f_lm_cap: cb2.success(f"Flexo (M m)\n\nCap: {cap_f_lm_m:,.2f}\n\nReq: {req_f_lm_m:,.2f}")
+    else: cb2.error(f"Flexo (M m)\n\nCap: {cap_f_lm_m:,.2f}\n\nReq: {req_f_lm_m:,.2f}")
     
-    if (t_lam_sqm/std_w if std_w>0 else 0) <= l_lm_cap: cb3.success(f"Lam (M m)\n\nCap: {l_lm_cap/1000000:,.2f}\n\nReq: {(t_lam_sqm/std_w if std_w>0 else 0)/1000000:,.2f}")
-    else: cb3.error(f"Lam (M m)\n\nCap: {l_lm_cap/1000000:,.2f}\n\nReq: {(t_lam_sqm/std_w if std_w>0 else 0)/1000000:,.2f}")
+    req_l_lm_m, cap_l_lm_m = (t_lam_sqm/std_w if std_w>0 else 0) / 1000000, l_lm_cap / 1000000
+    if (t_lam_sqm/std_w if std_w>0 else 0) <= l_lm_cap: cb3.success(f"Lam (M m)\n\nCap: {cap_l_lm_m:,.2f}\n\nReq: {req_l_lm_m:,.2f}")
+    else: cb3.error(f"Lam (M m)\n\nCap: {cap_l_lm_m:,.2f}\n\nReq: {req_l_lm_m:,.2f}")
 
-    if t_slt_lm <= s_lm_cap: cb4.success(f"Slit (M m)\n\nCap: {s_lm_cap/1000000:,.2f}\n\nReq: {t_slt_lm/1000000:,.2f}")
-    else: cb4.error(f"Slit (M m)\n\nCap: {s_lm_cap/1000000:,.2f}\n\nReq: {t_slt_lm/1000000:,.2f}")
+    req_s_lm_m, cap_s_lm_m = t_slt_lm / 1000000, s_lm_cap / 1000000
+    if t_slt_lm <= s_lm_cap: cb4.success(f"Slit (M m)\n\nCap: {cap_s_lm_m:,.2f}\n\nReq: {req_s_lm_m:,.2f}")
+    else: cb4.error(f"Slit (M m)\n\nCap: {cap_s_lm_m:,.2f}\n\nReq: {req_s_lm_m:,.2f}")
 
-    if t_bag_lm <= b_lm_cap: cb5.success(f"BagMk (M m)\n\nCap: {b_lm_cap/1000000:,.2f}\n\nReq: {t_bag_lm/1000000:,.2f}")
-    else: cb5.error(f"BagMk (M m)\n\nCap: {b_lm_cap/1000000:,.2f}\n\nReq: {t_bag_lm/1000000:,.2f}")
+    req_b_lm_m, cap_b_lm_m = t_bag_lm / 1000000, b_lm_cap / 1000000
+    if t_bag_lm <= b_lm_cap: cb5.success(f"BagMk (M m)\n\nCap: {cap_b_lm_m:,.2f}\n\nReq: {req_b_lm_m:,.2f}")
+    else: cb5.error(f"BagMk (M m)\n\nCap: {cap_b_lm_m:,.2f}\n\nReq: {req_b_lm_m:,.2f}")
 
 # --- TAB 6: P&L Summary & WORKING CAPITAL ---
 with tabs[5]:
