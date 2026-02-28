@@ -105,7 +105,6 @@ with tabs[1]:
     ann_dep = dep_e + dep_f + dep_l + dep_s + dep_b + (hng_pr/hng_dep_y) + (chl_pr/chl_dep_y) + (cmp_pr/cmp_dep_y)
     t_capex = e_pr + f_pr + l_pr + s_pr + b_pr + hng_pr + chl_pr + cmp_pr
 
-    # 🌟 تم إرجاع الرسم البياني الخاص بطاقة الماكينات 🌟
     st.markdown("### 📊 2. Machine Capacity Chart")
     chart_gsm = st.number_input("Avg GSM for Chart", value=40.0, step=1.0)
     df_cap = pd.DataFrame({
@@ -131,7 +130,6 @@ with tabs[2]:
 
 # --- TAB 4: HR & OPEX ---
 with tabs[3]:
-    # 🌟 تم إرجاع قسم الموارد البشرية التفصيلي مع الرسم البياني 🌟
     st.header("🏢 HR & OPEX (الموارد البشرية والمصاريف الإدارية)")
     
     st.markdown("#### 👥 1. Manpower & Payroll (القوى العاملة)")
@@ -203,7 +201,7 @@ with tabs[3]:
 
 # --- TAB 5: Recipes & Detailed Costing ---
 with tabs[4]:
-    st.markdown("### ⚙️ 1. Global Settings")
+    st.markdown("### ⚙️ 1. Global Production Settings")
     c_s1, c_s2, c_s3, c_s4, c_s5 = st.columns(5)
     t_tons = c_s1.number_input("🎯 Target Tons", value=2500.0, step=100.0)
     std_w = c_s2.number_input("📏 Web Width (m)", value=1.000, step=0.1)
@@ -212,7 +210,7 @@ with tabs[4]:
     a_gsm = c_s5.number_input("🍯 Adh GSM", value=1.8, step=0.1)
     d_ink = w_ink * (1.0 - (i_loss/100.0))
     
-    st.markdown("### ♻️ 2. Scrap & Waste Engine")
+    st.markdown("### ♻️ 2. Scrap Engine")
     cw1, cw2, cw3, cw4, cw5 = st.columns(5)
     w_ext = cw1.number_input("Extruder Waste %", value=3.0, step=0.5)
     w_flx = cw2.number_input("Flexo Waste %", value=4.0, step=0.5)
@@ -253,7 +251,8 @@ with tabs[4]:
         is_p, r_ton = r.get("Print", True), t_tons*(r["Mix%"]/100.0)
         lp = 1 if r["M2"] > 0 and str(r["L2"]) != "None" else 0
         
-        u_ext = ("pe" in str(r["L1"]).lower() or "pe" in str(r["L2"]).lower())
+        # 🌟 التصحيح الذكي للإكسترودر (يستهدف فقط أسماء المواد التي تبدأ بـ PE) 🌟
+        u_ext = (str(r["L1"]).upper().startswith("PE ") or str(r["L2"]).upper().startswith("PE "))
         u_slt = r.get("Format") == "Roll (Slitted)"
         u_bag = r.get("Format") == "Bag"
         
@@ -342,13 +341,11 @@ with tabs[4]:
     }
     st.dataframe(df_show[["Product", "Format", "Tons", "Waste%", "NetMatCost", "Extrdr", "Flexo", "Lam", "Slit", "BagMk", "OH", "TotalCost", "Price", "Profit", "Margin%"]].style.format(format_dict).map(color_negative_red, subset=['Profit', 'Margin%']), use_container_width=True)
 
-    # 🌟 تم إرجاع الرسم البياني المقطعي (Cost Breakdown) 🌟
     st.markdown("### 🥧 5. Cost Structure Breakdown per Product (SAR/Kg)")
     df_melt = df_show.melt(id_vars="Product", value_vars=["NetMatCost", "Extrdr", "Flexo", "Lam", "Slit", "BagMk", "OH"], var_name="Cost Component", value_name="Cost (SAR/Kg)")
     fig_breakdown = px.bar(df_melt, x="Product", y="Cost (SAR/Kg)", color="Cost Component", title="Where does the money go? (Cost Breakdown)", text_auto=".2f")
     st.plotly_chart(fig_breakdown, use_container_width=True)
 
-    # 🌟 تم إرجاع مربعات الاختناقات 🌟
     st.markdown("### 🚦 6. Line Balancing (Bottleneck Check)")
     cb1, cb2, cb3, cb4, cb5 = st.columns(5)
     if tons_ext <= e_tons_cap: cb1.success(f"Extruder\n\nCap: {e_tons_cap:,.0f} T\n\nReq: {tons_ext:,.0f} T")
