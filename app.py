@@ -3,9 +3,9 @@ import streamlit as st, pandas as pd, io, plotly.express as px
 st.set_page_config(page_title="Royan Plant", layout="wide")
 st.title("🏭 Royan Smart Plant Simulator - FFS Edition")
 
-tabs = st.tabs(["1. Materials", "2. Production & Chart", "3. Consumables", "4. HR & OPEX", "5. Recipes (FFS)", "6. P&L", "7. Commercial"])
+tabs = st.tabs(["1. Materials", "2. Production & Chart", "3. Consumables", "4. HR & OPEX", "5. Recipes (FFS)", "6. P&L & WC", "7. Commercial"])
 
-# --- TAB 1: Materials (Re-structured) ---
+# --- TAB 1: Materials ---
 with tabs[0]:
     st.markdown("### 📦 1. Ready Films (Bought in Rolls)")
     c1, c2, c3, c4 = st.columns(4)
@@ -64,14 +64,14 @@ with tabs[1]:
         e_tons_cap = (e_kg * net_hrs) / 1000.0
     with m2:
         f_s = st.number_input("Flexo Speed", value=350.0, step=10.0)
-        f_w = st.number_input("Flexo Width", value=1.0, step=0.1) # Fixed at 1.0 based on request
+        f_w = st.number_input("Flexo Width", value=1.0, step=0.1)
         f_e = st.slider("Flexo Eff%", 1, 100, 80)
         f_k = st.number_input("Flexo kW", value=150.0, step=5.0)
         f_pr = st.number_input("Flexo CAPEX", value=8000000.0, step=50000.0)
         f_lm_cap = net_hrs * 60.0 * f_s * (f_e/100.0)
     with m3:
         l_s = st.number_input("Lam Speed", value=450.0, step=10.0)
-        l_w = st.number_input("Lam Width", value=1.0, step=0.1) # Fixed at 1.0
+        l_w = st.number_input("Lam Width", value=1.0, step=0.1) 
         l_e = st.slider("Lam Eff%", 1, 100, 75)
         l_k = st.number_input("Lam kW", value=80.0, step=5.0)
         l_pr = st.number_input("Lam CAPEX", value=1200000.0, step=50000.0)
@@ -79,7 +79,7 @@ with tabs[1]:
     m4, m5 = st.columns(2)
     with m4:
         s_s = st.number_input("Slit Speed", value=400.0, step=10.0)
-        s_w = st.number_input("Slit Width", value=1.0, step=0.1) # Fixed at 1.0
+        s_w = st.number_input("Slit Width", value=1.0, step=0.1) 
         s_e = st.slider("Slit Eff%", 1, 100, 50)
         s_k = st.number_input("Slit kW", value=40.0, step=5.0)
         s_pr = st.number_input("Slit CAPEX", value=800000.0, step=50000.0)
@@ -132,21 +132,53 @@ with tabs[2]:
 
 # --- TAB 4: HR & OPEX ---
 with tabs[3]:
-    st.header("🏢 HR & OPEX")
-    payroll = (st.number_input("Eng Sal Total", value=24000, step=1000) + 
-               st.number_input("Op Sal Total", value=27000, step=1000) + 
-               st.number_input("Wrk Sal Total", value=25000, step=1000) + 
-               st.number_input("Adm Sal Total", value=40000, step=1000) + 
-               st.number_input("Saudi Sal Total", value=20000, step=1000))
-    adm_exp = st.number_input("Monthly Admin Exp", value=40000, step=1000)
+    st.header("🏢 HR & OPEX (الموارد البشرية والمصاريف)")
+    
+    st.markdown("#### 👥 1. Manpower & Payroll")
+    h1, h2, h3 = st.columns(3)
+    with h1:
+        eng_q = st.number_input("Engineers Qty", value=3, step=1)
+        eng_s = st.number_input("Engineer Salary", value=8000, step=500)
+        opr_q = st.number_input("Operators Qty", value=6, step=1)
+        opr_s = st.number_input("Operator Salary", value=4500, step=500)
+        wrk_q = st.number_input("Workers Qty", value=10, step=1)
+        wrk_s = st.number_input("Worker Salary", value=2500, step=500)
+    with h2:
+        adm_q = st.number_input("Admin/Sales Qty", value=5, step=1)
+        adm_s = st.number_input("Admin Salary", value=8000, step=500)
+        sau_q = st.number_input("Saudi Qty", value=5, step=1)
+        sau_s = st.number_input("Saudi Salary", value=4000, step=500)
+    with h3:
+        st.info("Iqama, GOSI, Medical Ins, Flights")
+        hidden_cost_pct = st.slider("Hidden Benefits %", 0, 50, 20)
+
+    st.markdown("#### 🏢 2. General & Admin Expenses")
+    o1, o2, o3 = st.columns(3)
+    rent_exp = o1.number_input("Land Rent & Licenses", value=8000, step=500)
+    sales_exp = o1.number_input("Sales & Mktg", value=12000, step=500)
+    it_exp = o2.number_input("IT & Software", value=5000, step=500)
+    fac_exp = o2.number_input("Utilities & Maint.", value=5000, step=500)
+    ins_exp = o3.number_input("Insurance", value=6000, step=500)
+    misc_exp = o3.number_input("Consulting/Misc", value=4000, step=500)
+
+    adm_exp = rent_exp + sales_exp + it_exp + fac_exp + ins_exp + misc_exp
+    base_payroll = (eng_q*eng_s) + (opr_q*opr_s) + (wrk_q*wrk_s) + (adm_q*adm_s) + (sau_q*sau_s)
+    gov_benefits_cost = base_payroll * (hidden_cost_pct / 100.0)
+    payroll = base_payroll + gov_benefits_cost 
 
 # --- TAB 5: Recipes & Detailed Costing (THE FFS UPDATE) ---
 with tabs[4]:
+    # 🌟 تم إرجاع الخانات المفقودة الخاصة بالحبر 🌟
     st.markdown("### ⚙️ 1. Global FFS Settings")
-    c_s1, c_s2, c_s3 = st.columns(3)
+    c_s1, c_s2, c_s3, c_s4, c_s5 = st.columns(5)
     t_tons = c_s1.number_input("🎯 Target Tons", value=2500.0, step=100.0)
-    std_w = c_s2.number_input("📏 Web Width (m)", value=1.000, step=0.1) # Default 1000mm
-    a_gsm = c_s3.number_input("🍯 Adh GSM", value=1.8, step=0.1)
+    std_w = c_s2.number_input("📏 Web Width (m)", value=1.000, step=0.1)
+    w_ink = c_s3.number_input("🎨 Wet Ink", value=5.0, step=0.1)
+    i_loss = c_s4.number_input("💧 Ink Loss %", value=40.0, step=1.0)
+    a_gsm = c_s5.number_input("🍯 Adh GSM", value=1.8, step=0.1)
+    
+    # تعريف المتغير الذي تسبب في المشكلة
+    d_ink = w_ink * (1.0 - (i_loss/100.0))
     
     st.markdown("### ♻️ 2. Scrap & Waste Engine")
     cw1, cw2, cw3, cw4, cw5 = st.columns(5)
@@ -157,7 +189,6 @@ with tabs[4]:
     scrap_p = cw5.number_input("Scrap Resale (SAR/Kg)", value=1.5, step=0.1)
     
     st.markdown("### 📋 3. Smart Product Portfolio (FFS)")
-    # 🌟 البيانات الدقيقة المطلوبة منك بالظبط 🌟
     init_data = [
         {"Product": "1 Lyr BOPP Trans", "Format": "Roll", "Print": True, "L1": "BOPP Trans", "M1": 35, "L2": "None", "M2": 0, "Mix%": 15, "Price": 13.0},
         {"Product": "1 Lyr BOPP Pearl", "Format": "Roll", "Print": True, "L1": "BOPP Pearl", "M1": 38, "L2": "None", "M2": 0, "Mix%": 10, "Price": 13.5},
@@ -177,7 +208,6 @@ with tabs[4]:
         is_p, r_ton = r.get("Print", True), t_tons*(r["Mix%"]/100.0)
         lp = 1 if r["M2"] > 0 and str(r["L2"]) != "None" else 0
         
-        # 🌟 التوجيه الذكي للمعدات 🌟
         u_ext = ("pe" in str(r["L1"]).lower() or "pe" in str(r["L2"]).lower())
         u_slt = r.get("Format", "Roll") == "Roll"
         u_bag = r.get("Format", "Roll") == "Bag"
@@ -220,7 +250,12 @@ with tabs[4]:
         if u_bag: t_bag_lm += gross_len
         w_gsm += tg*(r["Mix%"]/100.0)
         
-        temp_dets.append({"Product":r["Product"],"Format":r["Format"],"Tons":r_ton,"GSM":tg,"NetMatCost":net_mat_cost, "Waste%": (1-y), "ScrapRev/Kg": scrap_rev_kg, "Price":r["Price"],"u_ext":u_ext,"lp":lp,"u_slt":u_slt,"u_bag":u_bag})
+        temp_dets.append({
+            "Product":r["Product"], "Format":r["Format"], "Tons":r_ton, "GSM":tg, 
+            "GrossMatCost":gross_mat_cost, "NetMatCost":net_mat_cost, 
+            "Waste%": (1-y), "ScrapRev/Kg": scrap_rev_kg, "Price":r["Price"], 
+            "u_ext":u_ext, "lp":lp, "u_slt":u_slt, "u_bag":u_bag
+        })
 
     ln_m = (t_tons*1000/w_gsm*1000)/std_w if w_gsm>0 and std_w>0 else 0
     a_cons = ((ln_m/(an_lf*1000000.0))*an_pr*8.0 if an_lf>0 else 0) + ((ln_m/bl_lf)*(bl_qt*bl_pr + es_pr*8.0) if bl_lf>0 else 0) + ((t_flexo_lm/pl_lf)*pl_pr if pl_lf>0 else 0) + ((j_mo*12.0)*tp_qt*tp_pr)
@@ -243,15 +278,14 @@ with tabs[4]:
         m_pct = (d["Price"] - t_cost) / d["Price"] if d["Price"] > 0 else 0
         
         dets.append({
-            "Product": d["Product"], "Format": d["Format"], "Tons": d["Tons"], "Waste%": d["Waste%"], "NetMatCost": d["NetMatCost"], 
+            "Product": d["Product"], "Format": d["Format"], "Tons": d["Tons"], "Waste%": d["Waste%"], "GrossMatCost": d["GrossMatCost"], "NetMatCost": d["NetMatCost"], 
             "Extrdr": c_e, "Flexo": c_f, "Lam": c_l, "Slit": c_s, "BagMk": c_b, "OH": r_o,
-            "TotalCost": t_cost, "Price": d["Price"], "Profit": d["Price"]-t_cost, "Margin%": m_pct, "GSM": d["GSM"]
+            "TotalCost": t_cost, "Price": d["Price"], "Profit": d["Price"]-t_cost, "Margin%": m_pct, "ScrapRev/Kg": d["ScrapRev/Kg"], "GSM": d["GSM"]
         })
     
     st.markdown("### 📊 4. Detailed ABC Costing & Margins (SAR/Kg)")
     df_show = pd.DataFrame(dets)
     
-    # 🎨 تلوين ذكي: إذا كان الربح بالسالب يظهر بلون أحمر
     def color_negative_red(val):
         color = 'red' if val < 0 else 'green'
         return f'color: {color}'
@@ -264,32 +298,41 @@ with tabs[4]:
     
     st.dataframe(df_show[["Product", "Format", "Tons", "Waste%", "NetMatCost", "Extrdr", "Flexo", "Lam", "Slit", "BagMk", "OH", "TotalCost", "Price", "Profit", "Margin%"]].style.format(format_dict).map(color_negative_red, subset=['Profit', 'Margin%']), use_container_width=True)
 
-    st.markdown("### 🚦 5. Line Balancing (Bottleneck Check)")
-    cb1, cb2, cb3, cb4, cb5 = st.columns(5)
-    if tons_ext <= e_tons_cap: cb1.success(f"Extruder\n\nCap: {e_tons_cap:,.0f} T\n\nReq: {tons_ext:,.0f} T")
-    else: cb1.error(f"Extruder\n\nCap: {e_tons_cap:,.0f} T\n\nReq: {tons_ext:,.0f} T")
-    
-    if t_flexo_lm <= f_lm_cap: cb2.success(f"Flexo (M m)\n\nCap: {f_lm_cap/1000000:,.2f}\n\nReq: {t_flexo_lm/1000000:,.2f}")
-    else: cb2.error(f"Flexo (M m)\n\nCap: {f_lm_cap/1000000:,.2f}\n\nReq: {t_flexo_lm/1000000:,.2f}")
-    
-    if (t_lam_sqm/std_w if std_w>0 else 0) <= l_lm_cap: cb3.success(f"Lam (M m)\n\nCap: {l_lm_cap/1000000:,.2f}\n\nReq: {(t_lam_sqm/std_w if std_w>0 else 0)/1000000:,.2f}")
-    else: cb3.error(f"Lam (M m)\n\nCap: {l_lm_cap/1000000:,.2f}\n\nReq: {(t_lam_sqm/std_w if std_w>0 else 0)/1000000:,.2f}")
-
-    if t_slt_lm <= s_lm_cap: cb4.success(f"Slit (M m)\n\nCap: {s_lm_cap/1000000:,.2f}\n\nReq: {t_slt_lm/1000000:,.2f}")
-    else: cb4.error(f"Slit (M m)\n\nCap: {s_lm_cap/1000000:,.2f}\n\nReq: {t_slt_lm/1000000:,.2f}")
-
-    if t_bag_lm <= b_lm_cap: cb5.success(f"BagMk (M m)\n\nCap: {b_lm_cap/1000000:,.2f}\n\nReq: {t_bag_lm/1000000:,.2f}")
-    else: cb5.error(f"BagMk (M m)\n\nCap: {b_lm_cap/1000000:,.2f}\n\nReq: {t_bag_lm/1000000:,.2f}")
-
-# --- TAB 6 & 7: P&L Summary & Commercial ---
+# --- TAB 6 & 7: P&L Summary & WC ---
 with tabs[5]:
     total_rev = sum(d['Price']*d['Tons']*1000 for d in dets)
+    total_scrap_rev = sum(d['ScrapRev/Kg']*d['Tons']*1000 for d in dets)
     total_all_cost = sum(d['TotalCost']*d['Tons']*1000 for d in dets)
-    st.header("Plant Financial Summary")
-    f1, f2, f3 = st.columns(3)
+    
+    total_gross_mat = sum(d['GrossMatCost']*d['Tons']*1000 for d in dets)
+    cash_opex = total_all_cost - ann_dep - total_gross_mat + total_scrap_rev
+    
+    st.markdown("### ⏳ Working Capital Cycle (دورة رأس المال العامل)")
+    wc_c1, wc_c2, wc_c3 = st.columns(3)
+    ar_days = wc_c1.number_input("Receivable Days", value=60, step=15)
+    inv_days = wc_c2.number_input("Inventory Days", value=45, step=15)
+    ap_days = wc_c3.number_input("Payable Days", value=30, step=15)
+
+    receivables = (total_rev / 365.0) * ar_days
+    inventory = ((total_gross_mat + cash_opex) / 365.0) * inv_days
+    payables = (total_gross_mat / 365.0) * ap_days
+    working_capital = receivables + inventory - payables
+    
+    wc_m1, wc_m2, wc_m3, wc_m4 = st.columns(4)
+    wc_m1.metric("Cash with Customers", f"SAR {receivables:,.0f}")
+    wc_m2.metric("Cash in Inventory", f"SAR {inventory:,.0f}")
+    wc_m3.metric("Supplier Credit", f"SAR {payables:,.0f}")
+    wc_m4.metric("💰 Required WC", f"SAR {working_capital:,.0f}")
+    
+    st.markdown("---")
+    st.header("📈 Plant Financial Summary")
+    f1, f2, f3, f4 = st.columns(4)
     f1.metric("Revenue", f"SAR {total_rev:,.0f}")
-    f2.metric("Total Cost", f"SAR {total_all_cost:,.0f}")
-    f3.metric("Net Profit", f"SAR {total_rev-total_all_cost:,.0f}")
+    f2.metric("Scrap Recovery", f"SAR {total_scrap_rev:,.0f}")
+    f3.metric("Total Cost", f"SAR {total_all_cost:,.0f}")
+    f4.metric("Net Profit", f"SAR {total_rev-total_all_cost:,.0f}")
+    
+    st.warning(f"🏦 **Total Initial Investment Required:** SAR {t_capex + working_capital:,.0f} *(CAPEX: {t_capex:,.0f} + Working Capital: {working_capital:,.0f})*")
     
     st.markdown("### 💰 Net Profit Margin Chart")
     st.plotly_chart(px.bar(df_show, x="Product", y="Profit", color="Product", text_auto=".2f"), use_container_width=True)
