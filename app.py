@@ -203,7 +203,8 @@ with tabs[3]:
 with tabs[4]:
     st.markdown("### ⚙️ 1. Global Production Settings")
     c_s1, c_s2, c_s3, c_s4, c_s5 = st.columns(5)
-    t_tons = c_s1.number_input("🎯 Target Tons", value=2500.0, step=100.0)
+    # 🌟 التعديل 1: تم تغيير الافتراضي إلى 4500
+    t_tons = c_s1.number_input("🎯 Target Tons", value=4500.0, step=100.0)
     std_w = c_s2.number_input("📏 Web Width (m)", value=1.000, step=0.1)
     w_ink = c_s3.number_input("🎨 Wet Ink", value=5.0, step=0.1)
     i_loss = c_s4.number_input("💧 Ink Loss %", value=40.0, step=1.0)
@@ -243,6 +244,13 @@ with tabs[4]:
         }
     )
     
+    # 🌟 التعديل 2: مؤشر تجميع نسبة Mix% للتأكد من أنها 100% 🌟
+    total_mix = df_rec["Mix%"].sum()
+    if total_mix == 100:
+        st.success(f"✅ Total Mix: **{total_mix}%** (Perfect Allocation)")
+    else:
+        st.error(f"⚠️ Total Mix: **{total_mix}%** (Please adjust the table above so the sum is exactly 100%)")
+    
     w_gsm, t_flexo_lm, t_lam_sqm, tons_ext, tons_flx, tons_lam, tons_slt, tons_bag = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
     t_slt_lm, t_bag_lm, temp_dets = 0.0, 0.0, []
     t_ink_k, t_slv_k, t_adh_k = 0.0, 0.0, 0.0
@@ -251,7 +259,6 @@ with tabs[4]:
         is_p, r_ton = r.get("Print", True), t_tons*(r["Mix%"]/100.0)
         lp = 1 if r["M2"] > 0 and str(r["L2"]) != "None" else 0
         
-        # 🌟 التصحيح الذكي للإكسترودر (يستهدف فقط أسماء المواد التي تبدأ بـ PE) 🌟
         u_ext = (str(r["L1"]).upper().startswith("PE ") or str(r["L2"]).upper().startswith("PE "))
         u_slt = r.get("Format") == "Roll (Slitted)"
         u_bag = r.get("Format") == "Bag"
