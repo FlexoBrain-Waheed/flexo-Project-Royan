@@ -13,7 +13,6 @@ with tabs[0]:
     d_b = c1.number_input("BOPP Den", value=0.91, step=0.01)
     p_pt = c2.number_input("PET SAR", value=6.3, step=0.1)
     d_pt = c2.number_input("PET Den", value=1.40, step=0.01)
-    # 🌟 التعديل هنا: تم تغيير سعر الألومنيوم الافتراضي إلى 17.0
     p_al = c3.number_input("ALU SAR", value=17.0, step=0.1)
     d_al = c3.number_input("ALU Den", value=2.70, step=0.01)
     
@@ -122,15 +121,64 @@ with tabs[2]:
     tp_pr = cc3.number_input("Tape SAR/m²", value=85.0, step=5.0)
     tp_qt = cc3.number_input("Tape m²/Job", value=6.0, step=0.5)
 
-# --- TAB 4: HR ---
+# --- TAB 4: HR & OPEX ---
 with tabs[3]:
-    st.header("HR & OPEX")
-    payroll = (st.number_input("Eng Sal Total", value=24000, step=1000) + 
-               st.number_input("Op Sal Total", value=27000, step=1000) + 
-               st.number_input("Wrk Sal Total", value=25000, step=1000) + 
-               st.number_input("Adm Sal Total", value=40000, step=1000) + 
-               st.number_input("Saudi Sal Total", value=20000, step=1000))
-    adm_exp = st.number_input("Monthly Admin Exp", value=40000, step=1000)
+    st.header("🏢 HR & OPEX (الموارد البشرية والمصاريف الإدارية)")
+    
+    st.markdown("#### 👥 1. Manpower & Payroll (القوى العاملة)")
+    h1, h2, h3 = st.columns(3)
+    
+    with h1:
+        st.markdown("**Production (Direct Labor)**")
+        eng_q = st.number_input("Engineers Qty", value=3, step=1)
+        eng_s = st.number_input("Engineer Salary", value=8000, step=500)
+        opr_q = st.number_input("Operators Qty", value=6, step=1)
+        opr_s = st.number_input("Operator Salary", value=4500, step=500)
+        wrk_q = st.number_input("Workers/Helpers Qty", value=10, step=1)
+        wrk_s = st.number_input("Worker Salary", value=2500, step=500)
+        
+    with h2:
+        st.markdown("**Admin & Support (Indirect)**")
+        adm_q = st.number_input("Admin/Sales Qty", value=5, step=1)
+        adm_s = st.number_input("Admin Salary", value=8000, step=500)
+        sau_q = st.number_input("Saudi (Nitaqat) Qty", value=5, step=1)
+        sau_s = st.number_input("Saudi Salary", value=4000, step=500)
+        
+    with h3:
+        st.markdown("**Overheads & Govt Fees**")
+        adm_exp = st.number_input("Monthly Admin Exp (Rent, Office, etc.)", value=40000, step=1000)
+        st.info("Hidden Costs: Iqama, GOSI, Medical Ins, Flights, EOSB")
+        hidden_cost_pct = st.slider("Hidden Benefits % (Over Base Salary)", 0, 50, 20)
+
+    # Calculations for HR
+    t_eng = eng_q * eng_s
+    t_opr = opr_q * opr_s
+    t_wrk = wrk_q * wrk_s
+    t_adm = adm_q * adm_s
+    t_sau = sau_q * sau_s
+    
+    base_payroll = t_eng + t_opr + t_wrk + t_adm + t_sau
+    gov_benefits_cost = base_payroll * (hidden_cost_pct / 100.0)
+    payroll = base_payroll + gov_benefits_cost # Final payroll passed to Tab 5
+    
+    total_headcount = eng_q + opr_q + wrk_q + adm_q + sau_q
+    saudization_pct = (sau_q / total_headcount) if total_headcount > 0 else 0
+    
+    st.markdown("---")
+    st.markdown("#### 📊 HR Dashboard")
+    hm1, hm2, hm3, hm4 = st.columns(4)
+    hm1.metric("👥 Total Headcount", f"{total_headcount} Emp")
+    hm2.metric("🇸🇦 Saudization %", f"{saudization_pct:.1%}", delta="Nitaqat Check")
+    hm3.metric("💸 Total Monthly Payroll", f"SAR {payroll:,.0f}")
+    hm4.metric("🏢 Total Monthly OPEX", f"SAR {payroll + adm_exp:,.0f}")
+    
+    # Chart for OPEX Breakdown
+    df_hr = pd.DataFrame({
+        "Category": ["Engineers", "Operators", "Workers", "Admin", "Saudis", "Gov Fees/Benefits", "Admin Expenses"],
+        "Monthly Cost": [t_eng, t_opr, t_wrk, t_adm, t_sau, gov_benefits_cost, adm_exp]
+    })
+    fig_hr = px.pie(df_hr, names="Category", values="Monthly Cost", title="Monthly OPEX Breakdown", hole=0.4)
+    st.plotly_chart(fig_hr, use_container_width=True)
 
 # --- TAB 5: Recipes & Detailed Costing ---
 with tabs[4]:
@@ -223,7 +271,11 @@ with tabs[4]:
 
     dets = []
     for d in temp_dets:
-        c_e, c_f, c_l, c_s, c_b = r_e if d["u_ext"] else 0, r_f if d["Printed"] else 0, r_l * d["lp"], r_s if d["u_slt"] else 0, r_b if d["u_bag"] else 0
+        c_e = r_e if d["u_ext"] else 0
+        c_f = r_f if d["Printed"] else 0
+        c_l = r_l * d["lp"]
+        c_s = r_s if d["u_slt"] else 0
+        c_b = r_b if d["u_bag"] else 0
         t_cost = d["NetMatCost"] + c_e + c_f + c_l + c_s + c_b + r_o
         m_pct = (d["Price"] - t_cost) / d["Price"] if d["Price"] > 0 else 0
         
