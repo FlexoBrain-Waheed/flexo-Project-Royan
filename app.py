@@ -61,7 +61,6 @@ with tabs[1]:
         e_pr = st.number_input("Extruder CAPEX", value=5000000.0, step=50000.0)
         e_tons_cap = (e_kg * net_hrs) / 1000.0
     with m2:
-        # 🌟 التعديل هنا: السرعة إلى 400 والكفاءة إلى 82 🌟
         f_s = st.number_input("Flexo Speed", value=400.0, step=10.0)
         f_w = st.number_input("Flexo Width", value=1.0, step=0.1)
         f_e = st.slider("Flexo Eff%", 1, 100, 82)
@@ -133,9 +132,7 @@ with tabs[2]:
 with tabs[3]:
     st.header("🏢 HR & OPEX (الموارد البشرية والمصاريف الإدارية)")
     
-    st.markdown("#### 👥 1. Manpower & Payroll (القوى العاملة)")
     h1, h2, h3 = st.columns(3)
-    
     with h1:
         st.markdown("**Production (Direct Labor)**")
         eng_q = st.number_input("Engineers Qty", value=3, step=1)
@@ -144,17 +141,14 @@ with tabs[3]:
         opr_s = st.number_input("Operator Salary", value=4500, step=500)
         wrk_q = st.number_input("Workers Qty", value=10, step=1)
         wrk_s = st.number_input("Worker Salary", value=2500, step=500)
-        
     with h2:
         st.markdown("**Admin & Support (Indirect)**")
         adm_q = st.number_input("Admin/Sales Qty", value=5, step=1)
         adm_s = st.number_input("Admin Salary", value=8000, step=500)
         sau_q = st.number_input("Saudi (Nitaqat) Qty", value=5, step=1)
         sau_s = st.number_input("Saudi Salary", value=4000, step=500)
-        
     with h3:
         st.markdown("**Govt Fees & Benefits**")
-        st.info("Iqama, GOSI, Medical Ins, Flights, EOSB")
         hidden_cost_pct = st.slider("Hidden Benefits % (Over Base Salary)", 0, 50, 20)
 
     st.markdown("#### 🏢 2. General & Admin Expenses (SG&A)")
@@ -369,7 +363,7 @@ with tabs[4]:
     if t_bag_lm <= b_lm_cap: cb5.success(f"BagMk (M m)\n\nCap: {b_lm_cap/1000000:,.2f}\n\nReq: {t_bag_lm/1000000:,.2f}")
     else: cb5.error(f"BagMk (M m)\n\nCap: {b_lm_cap/1000000:,.2f}\n\nReq: {t_bag_lm/1000000:,.2f}")
 
-# --- TAB 6 & 7: P&L Summary & WC ---
+# --- TAB 6 & 7: P&L Summary, WC & SMART EXCEL EXPORT ---
 with tabs[5]:
     total_rev = sum(d['Price']*d['Tons']*1000 for d in dets)
     total_scrap_rev = sum(d['ScrapRev/Kg']*d['Tons']*1000 for d in dets)
@@ -387,6 +381,12 @@ with tabs[5]:
     inventory = ((total_gross_mat + cash_opex) / 365.0) * inv_days
     payables = (total_gross_mat / 365.0) * ap_days
     working_capital = receivables + inventory - payables
+    total_investment = t_capex + working_capital
+    net_profit = total_rev - total_all_cost
+    
+    roi_pct = (net_profit / total_investment) if total_investment > 0 else 0
+    payback_yrs = (total_investment / net_profit) if net_profit > 0 else 0
+    net_margin = (net_profit / total_rev) if total_rev > 0 else 0
     
     wc_m1, wc_m2, wc_m3, wc_m4 = st.columns(4)
     wc_m1.metric("Cash with Customers", f"SAR {receivables:,.0f}")
@@ -395,14 +395,91 @@ with tabs[5]:
     wc_m4.metric("💰 Required WC", f"SAR {working_capital:,.0f}")
     
     st.markdown("---")
-    st.header("📈 Plant Financial Summary")
+    st.header("📈 Plant Financial Summary & Investor KPIs")
     f1, f2, f3, f4 = st.columns(4)
     f1.metric("Revenue", f"SAR {total_rev:,.0f}")
-    f2.metric("Scrap Recovery", f"SAR {total_scrap_rev:,.0f}")
-    f3.metric("Total Cost", f"SAR {total_all_cost:,.0f}")
-    f4.metric("Net Profit", f"SAR {total_rev-total_all_cost:,.0f}")
+    f2.metric("Total Cost", f"SAR {total_all_cost:,.0f}")
+    f3.metric("Net Profit", f"SAR {net_profit:,.0f}")
+    f4.metric("🏦 Total Investment", f"SAR {total_investment:,.0f}")
     
-    st.warning(f"🏦 **Total Initial Investment Required:** SAR {t_capex + working_capital:,.0f} *(CAPEX: {t_capex:,.0f} + Working Capital: {working_capital:,.0f})*")
+    k1, k2, k3 = st.columns(3)
+    k1.info(f"**ROI (العائد على الاستثمار):** {roi_pct:.1%}")
+    k2.info(f"**Payback Period (فترة الاسترداد):** {payback_yrs:.1f} Years")
+    k3.info(f"**Net Profit Margin (هامش الربح):** {net_margin:.1%}")
+    
+    # 🌟 التصدير الذكي الشامل لبرنامج الإكسل 🌟
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
+        wb = w.book
+        
+        # تنسيقات مخصصة للألوان والخطوط في الإكسل
+        h_fmt = wb.add_format({'bold': True, 'bg_color': '#0f4c81', 'font_color': 'white', 'border': 1, 'align': 'center'})
+        n_fmt = wb.add_format({'num_format': '#,##0.00', 'border': 1})
+        p_fmt = wb.add_format({'num_format': '0.00%', 'border': 1})
+        title_fmt = wb.add_format({'bold': True, 'font_size': 14, 'bg_color': '#e2efda', 'align': 'center', 'border': 1})
+        
+        # --- Sheet 1: Materials ---
+        df_mat_export = pd.DataFrame([
+            {"المادة الخام": k, "السعر (ريال/كجم)": v["p"], "الكثافة": v["d"]} for k, v in mat_db.items() if k != "None"
+        ])
+        df_mat_export.to_excel(w, sheet_name='1. المواد الخام', index=False)
+        w.sheets['1. المواد الخام'].set_column('A:C', 20)
+        
+        # --- Sheet 2: Production ---
+        df_mac_export = pd.DataFrame({
+            "الماكينة": ["إكسترودر", "طباعة فلكسو", "لامنيشن", "قص (سلتر)", "تشكيل أكياس"],
+            "السعة الإنتاجية (طن/سنويا)": [e_tons_cap, (f_lm_cap*f_w*40.0/1000000), (l_lm_cap*l_w*40.0/1000000), (s_lm_cap*s_w*40.0/1000000), (b_lm_cap*40.0/1000000)],
+            "قيمة الاستثمار CAPEX (ريال)": [e_pr, f_pr, l_pr, s_pr, b_pr]
+        })
+        df_mac_export.to_excel(w, sheet_name='2. الماكينات والإنتاج', index=False)
+        w.sheets['2. الماكينات والإنتاج'].set_column('A:C', 25)
+        
+        # --- Sheet 3: HR & OPEX ---
+        df_hr_export = df_hr.rename(columns={"Category": "البند", "Monthly Cost": "التكلفة الشهرية (ريال)"})
+        df_hr_export["التكلفة السنوية (ريال)"] = df_hr_export["التكلفة الشهرية (ريال)"] * 12
+        df_hr_export.to_excel(w, sheet_name='3. الموارد البشرية والتشغيل', index=False)
+        w.sheets['3. الموارد البشرية والتشغيل'].set_column('A:C', 25)
+        
+        # --- Sheet 4: Detailed Costing (Recipes) ---
+        df_costing = df_show.drop(columns=['GSM', 'GrossMatCost']).rename(columns={
+            "Product": "المنتج", "Format": "الشكل", "Tons": "الكمية (طن)", "Waste%": "نسبة الهالك",
+            "NetMatCost": "المواد", "Extrdr": "إكسترودر", "Flexo": "طباعة", "Lam": "لامنيشن", 
+            "Slit": "قص", "BagMk": "تشكيل", "OH": "إدارة", "TotalCost": "إجمالي التكلفة", 
+            "Price": "سعر البيع", "Profit": "الربح/كجم", "Margin%": "هامش الربح", "ScrapRev/Kg": "عائد السكراب"
+        })
+        df_costing.to_excel(w, sheet_name='4. تحليل التكاليف', index=False)
+        w.sheets['4. تحليل التكاليف'].set_column('A:P', 15)
+        
+        # --- Sheet 5: Investor Summary ---
+        ws_inv = wb.add_worksheet('5. الملخص المالي للمستثمر')
+        ws_inv.set_column('A:B', 30)
+        
+        ws_inv.merge_range('A1:B1', 'دراسة الجدوى - الملخص المالي (Royan Plant)', title_fmt)
+        ws_inv.write('A3', 'إجمالي الاستثمار في الأصول (CAPEX)', h_fmt)
+        ws_inv.write('B3', t_capex, n_fmt)
+        ws_inv.write('A4', 'رأس المال العامل المطلوب (Working Capital)', h_fmt)
+        ws_inv.write('B4', working_capital, n_fmt)
+        ws_inv.write('A5', 'إجمالي الاستثمار المطلوب لبدء المشروع', h_fmt)
+        ws_inv.write('B5', total_investment, n_fmt)
+        
+        ws_inv.write('A7', 'الإيرادات السنوية (المبيعات)', h_fmt)
+        ws_inv.write('B7', total_rev, n_fmt)
+        ws_inv.write('A8', 'الإيرادات السنوية (استرداد السكراب)', h_fmt)
+        ws_inv.write('B8', total_scrap_rev, n_fmt)
+        ws_inv.write('A9', 'إجمالي التكاليف السنوية (شاملة الإهلاك)', h_fmt)
+        ws_inv.write('B9', total_all_cost, n_fmt)
+        ws_inv.write('A10', 'صافي الربح السنوي (Net Profit)', h_fmt)
+        ws_inv.write('B10', net_profit, n_fmt)
+        
+        ws_inv.merge_range('A12:B12', 'المؤشرات المالية (Financial KPIs)', title_fmt)
+        ws_inv.write('A13', 'هامش الربح الصافي (Net Margin %)', h_fmt)
+        ws_inv.write('B13', net_margin, p_fmt)
+        ws_inv.write('A14', 'العائد على الاستثمار (ROI %)', h_fmt)
+        ws_inv.write('B14', roi_pct, p_fmt)
+        ws_inv.write('A15', 'فترة استرداد رأس المال (بالسنوات)', h_fmt)
+        ws_inv.write('B15', payback_yrs, n_fmt)
+
+    st.download_button("📥 Download Master Excel Study (Arabic)", buf.getvalue(), "Royan_Master_Study_Arabic.xlsx", use_container_width=True)
 
 with tabs[6]:
     st.header("Commercial Offer")
