@@ -1,7 +1,7 @@
 import streamlit as st, pandas as pd, io, plotly.express as px
 
 st.set_page_config(page_title="Royan Plant", layout="wide")
-st.title("🏭 Royan Smart Plant Simulator - FFS Edition")
+st.title("🏭 Royan Smart Plant Simulator - Master Edition")
 
 tabs = st.tabs(["1. Materials", "2. Production & Chart", "3. Consumables", "4. HR & OPEX", "5. Recipes (FFS)", "6. P&L & WC", "7. Commercial"])
 
@@ -22,19 +22,17 @@ with tabs[0]:
     d_pet = c4.number_input("PET Den", value=1.40, step=0.01)
     
     st.markdown("### 🧪 2. Resins for Extrusion (In-house Blown)")
-    c5, c6 = st.columns(2)
+    c5, c6, c7 = st.columns(3)
     p_pe_ffs = c5.number_input("PE FFS Resin SAR", value=3.5, step=0.1)
-    p_pe_lam = c6.number_input("PE Lam Resin SAR", value=4.5, step=0.1)
+    p_pe_shrk = c6.number_input("PE Shrink Resin SAR", value=3.5, step=0.1)
+    p_pe_bag = c7.number_input("PE Bag Resin SAR", value=3.5, step=0.1)
     d_pe = st.number_input("PE Density (All)", value=0.92, step=0.01)
     
     mat_db = {
-        "BOPP Trans": {"p": p_bopp_t, "d": d_bopp_t},
-        "BOPP Pearl": {"p": p_bopp_p, "d": d_bopp_p},
-        "BOPP Met": {"p": p_bopp_m, "d": d_bopp_m},
-        "PET": {"p": p_pet, "d": d_pet},
-        "PE FFS": {"p": p_pe_ffs, "d": d_pe},
-        "PE Lam": {"p": p_pe_lam, "d": d_pe},
-        "None": {"p": 0.0, "d": 0.0}
+        "BOPP Trans": {"p": p_bopp_t, "d": d_bopp_t}, "BOPP Pearl": {"p": p_bopp_p, "d": d_bopp_p},
+        "BOPP Met": {"p": p_bopp_m, "d": d_bopp_m}, "PET": {"p": p_pet, "d": d_pet},
+        "PE FFS": {"p": p_pe_ffs, "d": d_pe}, "PE Shrink": {"p": p_pe_shrk, "d": d_pe},
+        "PE Bag": {"p": p_pe_bag, "d": d_pe}, "PE Lam": {"p": 4.5, "d": d_pe}, "None": {"p": 0.0, "d": 0.0}
     }
     
     st.markdown("### 🎨 3. Chemicals & Adhesives")
@@ -53,7 +51,6 @@ with tabs[1]:
     c_hrs = cw2.number_input("C.O. Hrs", value=2.0, step=0.5)
     kw_p = cw3.number_input("SAR/kWh", value=0.18, step=0.01)
     net_hrs = (d_yr * s_day * h_sh) - (j_mo * 12 * c_hrs)
-    st.success(f"✅ Net Running Hours / Year: {net_hrs:,.0f}")
     
     st.markdown("### 1. Machine Parameters")
     m1, m2, m3 = st.columns(3)
@@ -107,17 +104,8 @@ with tabs[1]:
     ann_dep = dep_e + dep_f + dep_l + dep_s + dep_b + (hng_pr/hng_dep_y) + (chl_pr/chl_dep_y) + (cmp_pr/cmp_dep_y)
     t_capex = e_pr + f_pr + l_pr + s_pr + b_pr + hng_pr + chl_pr + cmp_pr
 
-    st.markdown("### 📊 Capacity Check")
-    chart_gsm = st.number_input("Avg GSM for Chart", value=40.0, step=1.0)
-    df_cap = pd.DataFrame({
-        "Machine": ["Extruder", "Flexo", "Lam", "Slitter", "BagMk"],
-        "Max Tons": [(e_kg*net_hrs/1000), (f_lm_cap*f_w*chart_gsm/1000000), (l_lm_cap*l_w*chart_gsm/1000000), (s_lm_cap*s_w*chart_gsm/1000000), (b_lm_cap*chart_gsm/1000000)]
-    })
-    st.plotly_chart(px.bar(df_cap, x="Machine", y="Max Tons", color="Machine", text_auto='.0f'), use_container_width=True)
-
 # --- TAB 3: Consumables ---
 with tabs[2]:
-    st.subheader("🛠️ Consumables")
     cc1, cc2, cc3 = st.columns(3)
     pl_pr = cc1.number_input("Plate SAR", value=2500.0, step=100.0)
     pl_lf = cc1.number_input("Plate Life(m)", value=400000.0, step=10000.0)
@@ -132,9 +120,7 @@ with tabs[2]:
 
 # --- TAB 4: HR & OPEX ---
 with tabs[3]:
-    st.header("🏢 HR & OPEX (الموارد البشرية والمصاريف)")
-    
-    st.markdown("#### 👥 1. Manpower & Payroll")
+    st.header("🏢 HR & OPEX")
     h1, h2, h3 = st.columns(3)
     with h1:
         eng_q = st.number_input("Engineers Qty", value=3, step=1)
@@ -149,10 +135,8 @@ with tabs[3]:
         sau_q = st.number_input("Saudi Qty", value=5, step=1)
         sau_s = st.number_input("Saudi Salary", value=4000, step=500)
     with h3:
-        st.info("Iqama, GOSI, Medical Ins, Flights")
         hidden_cost_pct = st.slider("Hidden Benefits %", 0, 50, 20)
 
-    st.markdown("#### 🏢 2. General & Admin Expenses")
     o1, o2, o3 = st.columns(3)
     rent_exp = o1.number_input("Land Rent & Licenses", value=8000, step=500)
     sales_exp = o1.number_input("Sales & Mktg", value=12000, step=500)
@@ -166,21 +150,18 @@ with tabs[3]:
     gov_benefits_cost = base_payroll * (hidden_cost_pct / 100.0)
     payroll = base_payroll + gov_benefits_cost 
 
-# --- TAB 5: Recipes & Detailed Costing (THE FFS UPDATE) ---
+# --- TAB 5: Recipes & Detailed Costing ---
 with tabs[4]:
-    # 🌟 تم إرجاع الخانات المفقودة الخاصة بالحبر 🌟
-    st.markdown("### ⚙️ 1. Global FFS Settings")
+    st.markdown("### ⚙️ 1. Global Production Settings")
     c_s1, c_s2, c_s3, c_s4, c_s5 = st.columns(5)
     t_tons = c_s1.number_input("🎯 Target Tons", value=2500.0, step=100.0)
     std_w = c_s2.number_input("📏 Web Width (m)", value=1.000, step=0.1)
     w_ink = c_s3.number_input("🎨 Wet Ink", value=5.0, step=0.1)
     i_loss = c_s4.number_input("💧 Ink Loss %", value=40.0, step=1.0)
     a_gsm = c_s5.number_input("🍯 Adh GSM", value=1.8, step=0.1)
-    
-    # تعريف المتغير الذي تسبب في المشكلة
     d_ink = w_ink * (1.0 - (i_loss/100.0))
     
-    st.markdown("### ♻️ 2. Scrap & Waste Engine")
+    st.markdown("### ♻️ 2. Scrap Engine")
     cw1, cw2, cw3, cw4, cw5 = st.columns(5)
     w_ext = cw1.number_input("Extruder Waste %", value=3.0, step=0.5)
     w_flx = cw2.number_input("Flexo Waste %", value=4.0, step=0.5)
@@ -188,17 +169,30 @@ with tabs[4]:
     w_fin = cw4.number_input("Finishing Waste %", value=2.0, step=0.5)
     scrap_p = cw5.number_input("Scrap Resale (SAR/Kg)", value=1.5, step=0.1)
     
-    st.markdown("### 📋 3. Smart Product Portfolio (FFS)")
+    st.markdown("### 📋 3. Smart Product Portfolio (Smart Routing)")
     init_data = [
-        {"Product": "1 Lyr BOPP Trans", "Format": "Roll", "Print": True, "L1": "BOPP Trans", "M1": 35, "L2": "None", "M2": 0, "Mix%": 15, "Price": 13.0},
-        {"Product": "1 Lyr BOPP Pearl", "Format": "Roll", "Print": True, "L1": "BOPP Pearl", "M1": 38, "L2": "None", "M2": 0, "Mix%": 10, "Price": 13.5},
-        {"Product": "1 Lyr FFS PE", "Format": "Roll", "Print": True, "L1": "PE FFS", "M1": 40, "L2": "None", "M2": 0, "Mix%": 15, "Price": 9.5},
-        {"Product": "2 Lyr PE + PE", "Format": "Roll", "Print": True, "L1": "PE FFS", "M1": 40, "L2": "PE Lam", "M2": 50, "Mix%": 15, "Price": 11.0},
-        {"Product": "2 Lyr PET + PE", "Format": "Roll", "Print": True, "L1": "PET", "M1": 12, "L2": "PE Lam", "M2": 50, "Mix%": 15, "Price": 13.5},
-        {"Product": "2 Lyr BOPP + Met", "Format": "Roll", "Print": True, "L1": "BOPP Trans", "M1": 20, "L2": "BOPP Met", "M2": 20, "Mix%": 15, "Price": 13.5},
-        {"Product": "2 Lyr BOPP + BOPP", "Format": "Roll", "Print": True, "L1": "BOPP Trans", "M1": 20, "L2": "BOPP Trans", "M2": 20, "Mix%": 15, "Price": 13.5}
+        {"Product": "1 Lyr BOPP Trans", "Format": "Roll (Slitted)", "Print": True, "L1": "BOPP Trans", "M1": 35, "L2": "None", "M2": 0, "Mix%": 10, "Price": 13.0},
+        {"Product": "1 Lyr BOPP Pearl", "Format": "Roll (Slitted)", "Print": True, "L1": "BOPP Pearl", "M1": 38, "L2": "None", "M2": 0, "Mix%": 10, "Price": 13.5},
+        {"Product": "1 Lyr FFS PE", "Format": "Roll (Slitted)", "Print": True, "L1": "PE FFS", "M1": 40, "L2": "None", "M2": 0, "Mix%": 10, "Price": 9.5},
+        {"Product": "2 Lyr PE + PE", "Format": "Roll (Slitted)", "Print": True, "L1": "PE FFS", "M1": 40, "L2": "PE Lam", "M2": 50, "Mix%": 10, "Price": 11.0},
+        {"Product": "2 Lyr PET + PE", "Format": "Roll (Slitted)", "Print": True, "L1": "PET", "M1": 12, "L2": "PE Lam", "M2": 50, "Mix%": 10, "Price": 13.5},
+        {"Product": "2 Lyr BOPP + Met", "Format": "Roll (Slitted)", "Print": True, "L1": "BOPP Trans", "M1": 20, "L2": "BOPP Met", "M2": 20, "Mix%": 10, "Price": 13.5},
+        {"Product": "2 Lyr BOPP + BOPP", "Format": "Roll (Slitted)", "Print": True, "L1": "BOPP Trans", "M1": 20, "L2": "BOPP Trans", "M2": 20, "Mix%": 10, "Price": 13.5},
+        {"Product": "Plain Shrink Film", "Format": "Jumbo Roll", "Print": False, "L1": "PE Shrink", "M1": 40, "L2": "None", "M2": 0, "Mix%": 15, "Price": 5.0},
+        {"Product": "PE Wicketer Bag", "Format": "Bag", "Print": True, "L1": "PE Bag", "M1": 40, "L2": "None", "M2": 0, "Mix%": 15, "Price": 12.0}
     ]
-    df_rec = st.data_editor(pd.DataFrame(init_data), num_rows="dynamic", use_container_width=True)
+    
+    df_rec = st.data_editor(
+        pd.DataFrame(init_data), 
+        num_rows="dynamic", 
+        use_container_width=True,
+        column_config={
+            "Format": st.column_config.SelectboxColumn(
+                "Format", help="Jumbo Roll skips Slitter/Bag. Bag goes to BagMk.",
+                options=["Roll (Slitted)", "Bag", "Jumbo Roll"], required=True
+            )
+        }
+    )
     
     w_gsm, t_flexo_lm, t_lam_sqm, tons_ext, tons_flx, tons_lam, tons_slt, tons_bag = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
     t_slt_lm, t_bag_lm, temp_dets = 0.0, 0.0, []
@@ -208,9 +202,10 @@ with tabs[4]:
         is_p, r_ton = r.get("Print", True), t_tons*(r["Mix%"]/100.0)
         lp = 1 if r["M2"] > 0 and str(r["L2"]) != "None" else 0
         
+        # 🌟 محرك التوجيه الذكي 🌟
         u_ext = ("pe" in str(r["L1"]).lower() or "pe" in str(r["L2"]).lower())
-        u_slt = r.get("Format", "Roll") == "Roll"
-        u_bag = r.get("Format", "Roll") == "Bag"
+        u_slt = r.get("Format") == "Roll (Slitted)"
+        u_bag = r.get("Format") == "Bag"
         
         y = 1.0
         if u_ext: y *= (1.0 - w_ext/100.0)
@@ -254,7 +249,7 @@ with tabs[4]:
             "Product":r["Product"], "Format":r["Format"], "Tons":r_ton, "GSM":tg, 
             "GrossMatCost":gross_mat_cost, "NetMatCost":net_mat_cost, 
             "Waste%": (1-y), "ScrapRev/Kg": scrap_rev_kg, "Price":r["Price"], 
-            "u_ext":u_ext, "lp":lp, "u_slt":u_slt, "u_bag":u_bag
+            "u_ext":u_ext, "lp":lp, "u_slt":u_slt, "u_bag":u_bag, "is_p": is_p
         })
 
     ln_m = (t_tons*1000/w_gsm*1000)/std_w if w_gsm>0 and std_w>0 else 0
@@ -270,7 +265,7 @@ with tabs[4]:
     dets = []
     for d in temp_dets:
         c_e = r_e if d["u_ext"] else 0
-        c_f = r_f 
+        c_f = r_f if d["is_p"] else 0
         c_l = r_l * d["lp"]
         c_s = r_s if d["u_slt"] else 0
         c_b = r_b if d["u_bag"] else 0
@@ -278,9 +273,9 @@ with tabs[4]:
         m_pct = (d["Price"] - t_cost) / d["Price"] if d["Price"] > 0 else 0
         
         dets.append({
-            "Product": d["Product"], "Format": d["Format"], "Tons": d["Tons"], "Waste%": d["Waste%"], "GrossMatCost": d["GrossMatCost"], "NetMatCost": d["NetMatCost"], 
+            "Product": d["Product"], "Format": d["Format"], "Tons": d["Tons"], "Waste%": d["Waste%"], "NetMatCost": d["NetMatCost"], 
             "Extrdr": c_e, "Flexo": c_f, "Lam": c_l, "Slit": c_s, "BagMk": c_b, "OH": r_o,
-            "TotalCost": t_cost, "Price": d["Price"], "Profit": d["Price"]-t_cost, "Margin%": m_pct, "ScrapRev/Kg": d["ScrapRev/Kg"], "GSM": d["GSM"]
+            "TotalCost": t_cost, "Price": d["Price"], "Profit": d["Price"]-t_cost, "Margin%": m_pct, "GSM": d["GSM"], "GrossMatCost": d["GrossMatCost"], "ScrapRev/Kg": d["ScrapRev/Kg"]
         })
     
     st.markdown("### 📊 4. Detailed ABC Costing & Margins (SAR/Kg)")
@@ -295,19 +290,23 @@ with tabs[4]:
         "Lam": "{:,.2f}", "Slit": "{:,.2f}", "BagMk": "{:,.2f}", "OH": "{:,.2f}", 
         "TotalCost": "{:,.2f}", "Price": "{:,.2f}", "Profit": "{:,.2f}", "Margin%": "{:,.2%}"
     }
-    
     st.dataframe(df_show[["Product", "Format", "Tons", "Waste%", "NetMatCost", "Extrdr", "Flexo", "Lam", "Slit", "BagMk", "OH", "TotalCost", "Price", "Profit", "Margin%"]].style.format(format_dict).map(color_negative_red, subset=['Profit', 'Margin%']), use_container_width=True)
+
+    # 🌟 الرسم البياني التراكمي المقطعي الجديد (Cost Breakdown) 🌟
+    st.markdown("### 🥧 5. Cost Structure Breakdown per Product (SAR/Kg)")
+    df_melt = df_show.melt(id_vars="Product", value_vars=["NetMatCost", "Extrdr", "Flexo", "Lam", "Slit", "BagMk", "OH"], var_name="Cost Component", value_name="Cost (SAR/Kg)")
+    fig_breakdown = px.bar(df_melt, x="Product", y="Cost (SAR/Kg)", color="Cost Component", title="Where does the money go? (Cost Breakdown)", text_auto=".2f")
+    st.plotly_chart(fig_breakdown, use_container_width=True)
 
 # --- TAB 6 & 7: P&L Summary & WC ---
 with tabs[5]:
     total_rev = sum(d['Price']*d['Tons']*1000 for d in dets)
     total_scrap_rev = sum(d['ScrapRev/Kg']*d['Tons']*1000 for d in dets)
     total_all_cost = sum(d['TotalCost']*d['Tons']*1000 for d in dets)
-    
     total_gross_mat = sum(d['GrossMatCost']*d['Tons']*1000 for d in dets)
     cash_opex = total_all_cost - ann_dep - total_gross_mat + total_scrap_rev
     
-    st.markdown("### ⏳ Working Capital Cycle (دورة رأس المال العامل)")
+    st.markdown("### ⏳ Working Capital Cycle")
     wc_c1, wc_c2, wc_c3 = st.columns(3)
     ar_days = wc_c1.number_input("Receivable Days", value=60, step=15)
     inv_days = wc_c2.number_input("Inventory Days", value=45, step=15)
@@ -333,9 +332,6 @@ with tabs[5]:
     f4.metric("Net Profit", f"SAR {total_rev-total_all_cost:,.0f}")
     
     st.warning(f"🏦 **Total Initial Investment Required:** SAR {t_capex + working_capital:,.0f} *(CAPEX: {t_capex:,.0f} + Working Capital: {working_capital:,.0f})*")
-    
-    st.markdown("### 💰 Net Profit Margin Chart")
-    st.plotly_chart(px.bar(df_show, x="Product", y="Profit", color="Product", text_auto=".2f"), use_container_width=True)
 
 with tabs[6]:
     st.header("Commercial Offer")
