@@ -3,7 +3,7 @@ import streamlit as st, pandas as pd, io, plotly.express as px
 st.set_page_config(page_title="Royan Plant", layout="wide")
 st.title("🏭 Royan Smart Plant Simulator - Master Edition")
 
-tabs = st.tabs(["1. Materials", "2. Production & Chart", "3. Consumables", "4. HR & OPEX", "5. Recipes (FFS)", "6. P&L & WC", "7. Commercial"])
+tabs = st.tabs(["1. Materials", "2. Production", "3. Consumables", "4. HR & OPEX", "5. Recipes (FFS)", "6. P&L & WC", "7. Offer"])
 
 # --- TAB 1: Materials ---
 with tabs[0]:
@@ -41,7 +41,7 @@ with tabs[0]:
     solv_p = ci2.number_input("Solvent/Kg", value=6.0, step=0.5)
     adh_p = ci3.number_input("Adhesive/Kg", value=12.0, step=0.5)
 
-# --- TAB 2: Production ---
+# --- TAB 2: Production & Chart ---
 with tabs[1]:
     cw1, cw2, cw3 = st.columns(3)
     d_yr = cw1.number_input("Days/Yr", value=300, step=1)
@@ -51,6 +51,7 @@ with tabs[1]:
     c_hrs = cw2.number_input("C.O. Hrs", value=2.0, step=0.5)
     kw_p = cw3.number_input("SAR/kWh", value=0.18, step=0.01)
     net_hrs = (d_yr * s_day * h_sh) - (j_mo * 12 * c_hrs)
+    st.success(f"✅ Net Running Hours / Year: {net_hrs:,.0f}")
     
     st.markdown("### 1. Machine Parameters")
     m1, m2, m3 = st.columns(3)
@@ -104,8 +105,18 @@ with tabs[1]:
     ann_dep = dep_e + dep_f + dep_l + dep_s + dep_b + (hng_pr/hng_dep_y) + (chl_pr/chl_dep_y) + (cmp_pr/cmp_dep_y)
     t_capex = e_pr + f_pr + l_pr + s_pr + b_pr + hng_pr + chl_pr + cmp_pr
 
+    # 🌟 تم إرجاع الرسم البياني الخاص بطاقة الماكينات 🌟
+    st.markdown("### 📊 2. Machine Capacity Chart")
+    chart_gsm = st.number_input("Avg GSM for Chart", value=40.0, step=1.0)
+    df_cap = pd.DataFrame({
+        "Machine": ["Extruder", "Flexo", "Lam", "Slitter", "BagMk"],
+        "Max Tons": [(e_tons_cap), (f_lm_cap*f_w*chart_gsm/1000000), (l_lm_cap*l_w*chart_gsm/1000000), (s_lm_cap*s_w*chart_gsm/1000000), (b_lm_cap*chart_gsm/1000000)]
+    })
+    st.plotly_chart(px.bar(df_cap, x="Machine", y="Max Tons", color="Machine", text_auto='.0f'), use_container_width=True)
+
 # --- TAB 3: Consumables ---
 with tabs[2]:
+    st.subheader("🛠️ Consumables")
     cc1, cc2, cc3 = st.columns(3)
     pl_pr = cc1.number_input("Plate SAR", value=2500.0, step=100.0)
     pl_lf = cc1.number_input("Plate Life(m)", value=400000.0, step=10000.0)
@@ -120,23 +131,34 @@ with tabs[2]:
 
 # --- TAB 4: HR & OPEX ---
 with tabs[3]:
-    st.header("🏢 HR & OPEX")
+    # 🌟 تم إرجاع قسم الموارد البشرية التفصيلي مع الرسم البياني 🌟
+    st.header("🏢 HR & OPEX (الموارد البشرية والمصاريف الإدارية)")
+    
+    st.markdown("#### 👥 1. Manpower & Payroll (القوى العاملة)")
     h1, h2, h3 = st.columns(3)
+    
     with h1:
+        st.markdown("**Production (Direct Labor)**")
         eng_q = st.number_input("Engineers Qty", value=3, step=1)
         eng_s = st.number_input("Engineer Salary", value=8000, step=500)
         opr_q = st.number_input("Operators Qty", value=6, step=1)
         opr_s = st.number_input("Operator Salary", value=4500, step=500)
         wrk_q = st.number_input("Workers Qty", value=10, step=1)
         wrk_s = st.number_input("Worker Salary", value=2500, step=500)
+        
     with h2:
+        st.markdown("**Admin & Support (Indirect)**")
         adm_q = st.number_input("Admin/Sales Qty", value=5, step=1)
         adm_s = st.number_input("Admin Salary", value=8000, step=500)
-        sau_q = st.number_input("Saudi Qty", value=5, step=1)
+        sau_q = st.number_input("Saudi (Nitaqat) Qty", value=5, step=1)
         sau_s = st.number_input("Saudi Salary", value=4000, step=500)
+        
     with h3:
-        hidden_cost_pct = st.slider("Hidden Benefits %", 0, 50, 20)
+        st.markdown("**Govt Fees & Benefits**")
+        st.info("Iqama, GOSI, Medical Ins, Flights, EOSB")
+        hidden_cost_pct = st.slider("Hidden Benefits % (Over Base Salary)", 0, 50, 20)
 
+    st.markdown("#### 🏢 2. General & Admin Expenses (SG&A)")
     o1, o2, o3 = st.columns(3)
     rent_exp = o1.number_input("Land Rent & Licenses", value=8000, step=500)
     sales_exp = o1.number_input("Sales & Mktg", value=12000, step=500)
@@ -146,13 +168,42 @@ with tabs[3]:
     misc_exp = o3.number_input("Consulting/Misc", value=4000, step=500)
 
     adm_exp = rent_exp + sales_exp + it_exp + fac_exp + ins_exp + misc_exp
-    base_payroll = (eng_q*eng_s) + (opr_q*opr_s) + (wrk_q*wrk_s) + (adm_q*adm_s) + (sau_q*sau_s)
+
+    t_eng = eng_q * eng_s
+    t_opr = opr_q * opr_s
+    t_wrk = wrk_q * wrk_s
+    t_adm = adm_q * adm_s
+    t_sau = sau_q * sau_s
+    
+    base_payroll = t_eng + t_opr + t_wrk + t_adm + t_sau
     gov_benefits_cost = base_payroll * (hidden_cost_pct / 100.0)
     payroll = base_payroll + gov_benefits_cost 
+    
+    total_headcount = eng_q + opr_q + wrk_q + adm_q + sau_q
+    saudization_pct = (sau_q / total_headcount) if total_headcount > 0 else 0
+    
+    st.markdown("---")
+    st.markdown("#### 📊 HR & OPEX Dashboard")
+    hm1, hm2, hm3, hm4 = st.columns(4)
+    hm1.metric("👥 Total Headcount", f"{total_headcount} Emp")
+    hm2.metric("🇸🇦 Saudization %", f"{saudization_pct:.1%}")
+    hm3.metric("💸 Monthly Payroll", f"SAR {payroll:,.0f}")
+    hm4.metric("🏢 Monthly Admin Exp", f"SAR {adm_exp:,.0f}")
+    
+    df_hr = pd.DataFrame({
+        "Category": ["Engineers", "Operators", "Workers", "Admin", "Saudis", "Gov Fees/Benefits", 
+                     "Rent & Licenses", "Sales & Mktg", "IT & Software", "Utilities & Maint", "Insurance", "Misc/Audit"],
+        "Monthly Cost": [t_eng, t_opr, t_wrk, t_adm, t_sau, gov_benefits_cost, 
+                         rent_exp, sales_exp, it_exp, fac_exp, ins_exp, misc_exp]
+    })
+    df_hr = df_hr[df_hr["Monthly Cost"] > 0]
+    
+    fig_hr = px.pie(df_hr, names="Category", values="Monthly Cost", title="Total Monthly OPEX Breakdown", hole=0.4)
+    st.plotly_chart(fig_hr, use_container_width=True)
 
 # --- TAB 5: Recipes & Detailed Costing ---
 with tabs[4]:
-    st.markdown("### ⚙️ 1. Global Production Settings")
+    st.markdown("### ⚙️ 1. Global Settings")
     c_s1, c_s2, c_s3, c_s4, c_s5 = st.columns(5)
     t_tons = c_s1.number_input("🎯 Target Tons", value=2500.0, step=100.0)
     std_w = c_s2.number_input("📏 Web Width (m)", value=1.000, step=0.1)
@@ -161,7 +212,7 @@ with tabs[4]:
     a_gsm = c_s5.number_input("🍯 Adh GSM", value=1.8, step=0.1)
     d_ink = w_ink * (1.0 - (i_loss/100.0))
     
-    st.markdown("### ♻️ 2. Scrap Engine")
+    st.markdown("### ♻️ 2. Scrap & Waste Engine")
     cw1, cw2, cw3, cw4, cw5 = st.columns(5)
     w_ext = cw1.number_input("Extruder Waste %", value=3.0, step=0.5)
     w_flx = cw2.number_input("Flexo Waste %", value=4.0, step=0.5)
@@ -169,7 +220,7 @@ with tabs[4]:
     w_fin = cw4.number_input("Finishing Waste %", value=2.0, step=0.5)
     scrap_p = cw5.number_input("Scrap Resale (SAR/Kg)", value=1.5, step=0.1)
     
-    st.markdown("### 📋 3. Smart Product Portfolio (Smart Routing)")
+    st.markdown("### 📋 3. Smart Product Portfolio (FFS & Routing)")
     init_data = [
         {"Product": "1 Lyr BOPP Trans", "Format": "Roll (Slitted)", "Print": True, "L1": "BOPP Trans", "M1": 35, "L2": "None", "M2": 0, "Mix%": 10, "Price": 13.0},
         {"Product": "1 Lyr BOPP Pearl", "Format": "Roll (Slitted)", "Print": True, "L1": "BOPP Pearl", "M1": 38, "L2": "None", "M2": 0, "Mix%": 10, "Price": 13.5},
@@ -202,7 +253,6 @@ with tabs[4]:
         is_p, r_ton = r.get("Print", True), t_tons*(r["Mix%"]/100.0)
         lp = 1 if r["M2"] > 0 and str(r["L2"]) != "None" else 0
         
-        # 🌟 محرك التوجيه الذكي 🌟
         u_ext = ("pe" in str(r["L1"]).lower() or "pe" in str(r["L2"]).lower())
         u_slt = r.get("Format") == "Roll (Slitted)"
         u_bag = r.get("Format") == "Bag"
@@ -292,11 +342,29 @@ with tabs[4]:
     }
     st.dataframe(df_show[["Product", "Format", "Tons", "Waste%", "NetMatCost", "Extrdr", "Flexo", "Lam", "Slit", "BagMk", "OH", "TotalCost", "Price", "Profit", "Margin%"]].style.format(format_dict).map(color_negative_red, subset=['Profit', 'Margin%']), use_container_width=True)
 
-    # 🌟 الرسم البياني التراكمي المقطعي الجديد (Cost Breakdown) 🌟
+    # 🌟 تم إرجاع الرسم البياني المقطعي (Cost Breakdown) 🌟
     st.markdown("### 🥧 5. Cost Structure Breakdown per Product (SAR/Kg)")
     df_melt = df_show.melt(id_vars="Product", value_vars=["NetMatCost", "Extrdr", "Flexo", "Lam", "Slit", "BagMk", "OH"], var_name="Cost Component", value_name="Cost (SAR/Kg)")
     fig_breakdown = px.bar(df_melt, x="Product", y="Cost (SAR/Kg)", color="Cost Component", title="Where does the money go? (Cost Breakdown)", text_auto=".2f")
     st.plotly_chart(fig_breakdown, use_container_width=True)
+
+    # 🌟 تم إرجاع مربعات الاختناقات 🌟
+    st.markdown("### 🚦 6. Line Balancing (Bottleneck Check)")
+    cb1, cb2, cb3, cb4, cb5 = st.columns(5)
+    if tons_ext <= e_tons_cap: cb1.success(f"Extruder\n\nCap: {e_tons_cap:,.0f} T\n\nReq: {tons_ext:,.0f} T")
+    else: cb1.error(f"Extruder\n\nCap: {e_tons_cap:,.0f} T\n\nReq: {tons_ext:,.0f} T")
+    
+    if t_flexo_lm <= f_lm_cap: cb2.success(f"Flexo (M m)\n\nCap: {f_lm_cap/1000000:,.2f}\n\nReq: {t_flexo_lm/1000000:,.2f}")
+    else: cb2.error(f"Flexo (M m)\n\nCap: {f_lm_cap/1000000:,.2f}\n\nReq: {t_flexo_lm/1000000:,.2f}")
+    
+    if (t_lam_sqm/std_w if std_w>0 else 0) <= l_lm_cap: cb3.success(f"Lam (M m)\n\nCap: {l_lm_cap/1000000:,.2f}\n\nReq: {(t_lam_sqm/std_w if std_w>0 else 0)/1000000:,.2f}")
+    else: cb3.error(f"Lam (M m)\n\nCap: {l_lm_cap/1000000:,.2f}\n\nReq: {(t_lam_sqm/std_w if std_w>0 else 0)/1000000:,.2f}")
+
+    if t_slt_lm <= s_lm_cap: cb4.success(f"Slit (M m)\n\nCap: {s_lm_cap/1000000:,.2f}\n\nReq: {t_slt_lm/1000000:,.2f}")
+    else: cb4.error(f"Slit (M m)\n\nCap: {s_lm_cap/1000000:,.2f}\n\nReq: {t_slt_lm/1000000:,.2f}")
+
+    if t_bag_lm <= b_lm_cap: cb5.success(f"BagMk (M m)\n\nCap: {b_lm_cap/1000000:,.2f}\n\nReq: {t_bag_lm/1000000:,.2f}")
+    else: cb5.error(f"BagMk (M m)\n\nCap: {b_lm_cap/1000000:,.2f}\n\nReq: {t_bag_lm/1000000:,.2f}")
 
 # --- TAB 6 & 7: P&L Summary & WC ---
 with tabs[5]:
