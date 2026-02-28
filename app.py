@@ -61,9 +61,10 @@ with tabs[1]:
         e_pr = st.number_input("Extruder CAPEX", value=5000000.0, step=50000.0)
         e_tons_cap = (e_kg * net_hrs) / 1000.0
     with m2:
-        f_s = st.number_input("Flexo Speed", value=350.0, step=10.0)
+        # 🌟 التعديل هنا: السرعة إلى 400 والكفاءة إلى 82 🌟
+        f_s = st.number_input("Flexo Speed", value=400.0, step=10.0)
         f_w = st.number_input("Flexo Width", value=1.0, step=0.1)
-        f_e = st.slider("Flexo Eff%", 1, 100, 80)
+        f_e = st.slider("Flexo Eff%", 1, 100, 82)
         f_k = st.number_input("Flexo kW", value=150.0, step=5.0)
         f_pr = st.number_input("Flexo CAPEX", value=8000000.0, step=50000.0)
         f_lm_cap = net_hrs * 60.0 * f_s * (f_e/100.0)
@@ -210,7 +211,6 @@ with tabs[4]:
     a_gsm = c_s5.number_input("🍯 Adh GSM", value=1.8, step=0.1)
     d_ink = w_ink * (1.0 - (i_loss/100.0))
     
-    # 🌟 تم تعديل نسب السكراب بناءً على الصورة 🌟
     st.markdown("### ♻️ 2. Scrap Engine")
     cw1, cw2, cw3, cw4, cw5 = st.columns(5)
     w_ext = cw1.number_input("Extruder Waste %", value=0.0, step=0.5)
@@ -219,7 +219,6 @@ with tabs[4]:
     w_fin = cw4.number_input("Finishing Waste %", value=1.5, step=0.5)
     scrap_p = cw5.number_input("Scrap Resale (SAR/Kg)", value=1.5, step=0.1)
     
-    # 🌟 تم تعديل نسب Mix% بناءً على الصورة 🌟
     st.markdown("### 📋 3. Smart Product Portfolio (FFS & Routing)")
     init_data = [
         {"Product": "1 Lyr BOPP Trans", "Format": "Roll (Slitted)", "Print": True, "L1": "BOPP Trans", "M1": 35, "L2": "None", "M2": 0, "Mix%": 10, "Price": 13.0},
