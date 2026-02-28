@@ -13,7 +13,8 @@ with tabs[0]:
     d_b = c1.number_input("BOPP Den", value=0.91, step=0.01)
     p_pt = c2.number_input("PET SAR", value=6.3, step=0.1)
     d_pt = c2.number_input("PET Den", value=1.40, step=0.01)
-    p_al = c3.number_input("ALU SAR", value=18.0, step=0.1)
+    # 🌟 التعديل هنا: تم تغيير سعر الألومنيوم الافتراضي إلى 17.0
+    p_al = c3.number_input("ALU SAR", value=17.0, step=0.1)
     d_al = c3.number_input("ALU Den", value=2.70, step=0.01)
     
     st.markdown("#### 🧪 PE Extrusion Grades")
@@ -270,11 +271,9 @@ with tabs[5]:
     total_scrap_rev = sum(d['ScrapRev/Kg']*d['Tons']*1000 for d in dets)
     total_all_cost = sum(d['TotalCost']*d['Tons']*1000 for d in dets)
     
-    # حسابات مسبقة لرأس المال العامل (Cash Costing)
     total_gross_mat = sum(d['GrossMatCost']*d['Tons']*1000 for d in dets)
     cash_opex = total_all_cost - ann_dep - total_gross_mat + total_scrap_rev
     
-    # 🌟 المحرك الجديد: رأس المال العامل 🌟
     st.markdown("### ⏳ Working Capital Cycle (دورة رأس المال العامل)")
     st.info("حدد أيام التحصيل والتخزين والدفع لمعرفة 'الكاش' المطلوب لبدء تشغيل المصنع دون تعثر.")
     wc_c1, wc_c2, wc_c3 = st.columns(3)
