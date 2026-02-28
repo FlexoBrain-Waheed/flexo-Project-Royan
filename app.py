@@ -132,7 +132,9 @@ with tabs[2]:
 with tabs[3]:
     st.header("🏢 HR & OPEX (الموارد البشرية والمصاريف الإدارية)")
     
+    st.markdown("#### 👥 1. Manpower & Payroll (القوى العاملة)")
     h1, h2, h3 = st.columns(3)
+    
     with h1:
         st.markdown("**Production (Direct Labor)**")
         eng_q = st.number_input("Engineers Qty", value=3, step=1)
@@ -141,14 +143,17 @@ with tabs[3]:
         opr_s = st.number_input("Operator Salary", value=4500, step=500)
         wrk_q = st.number_input("Workers Qty", value=10, step=1)
         wrk_s = st.number_input("Worker Salary", value=2500, step=500)
+        
     with h2:
         st.markdown("**Admin & Support (Indirect)**")
         adm_q = st.number_input("Admin/Sales Qty", value=5, step=1)
         adm_s = st.number_input("Admin Salary", value=8000, step=500)
         sau_q = st.number_input("Saudi (Nitaqat) Qty", value=5, step=1)
         sau_s = st.number_input("Saudi Salary", value=4000, step=500)
+        
     with h3:
         st.markdown("**Govt Fees & Benefits**")
+        st.info("Iqama, GOSI, Medical Ins, Flights, EOSB")
         hidden_cost_pct = st.slider("Hidden Benefits % (Over Base Salary)", 0, 50, 20)
 
     st.markdown("#### 🏢 2. General & Admin Expenses (SG&A)")
@@ -363,7 +368,7 @@ with tabs[4]:
     if t_bag_lm <= b_lm_cap: cb5.success(f"BagMk (M m)\n\nCap: {b_lm_cap/1000000:,.2f}\n\nReq: {t_bag_lm/1000000:,.2f}")
     else: cb5.error(f"BagMk (M m)\n\nCap: {b_lm_cap/1000000:,.2f}\n\nReq: {t_bag_lm/1000000:,.2f}")
 
-# --- TAB 6 & 7: P&L Summary, WC & SMART EXCEL EXPORT ---
+# --- TAB 6 & 7: P&L Summary & SMART EXCEL EXPORT ---
 with tabs[5]:
     total_rev = sum(d['Price']*d['Tons']*1000 for d in dets)
     total_scrap_rev = sum(d['ScrapRev/Kg']*d['Tons']*1000 for d in dets)
@@ -371,7 +376,17 @@ with tabs[5]:
     total_gross_mat = sum(d['GrossMatCost']*d['Tons']*1000 for d in dets)
     cash_opex = total_all_cost - ann_dep - total_gross_mat + total_scrap_rev
     
-    st.markdown("### ⏳ Working Capital Cycle")
+    net_profit_before_tax = total_rev - total_all_cost
+
+    # 🌟 المحرك الجديد: الضرائب للمستثمر الأجنبي (100%) 🌟
+    st.markdown("### 🏛️ Ownership & Tax (هيكل الملكية والضرائب)")
+    st.info("الاستثمار أجنبي 100% (MISA): يخضع المشروع لـ 20% ضريبة دخل للشركات على صافي الأرباح.")
+    
+    corp_tax = net_profit_before_tax * 0.20 if net_profit_before_tax > 0 else 0
+    net_profit_after_tax = net_profit_before_tax - corp_tax
+
+    st.markdown("---")
+    st.markdown("### ⏳ Working Capital Cycle (دورة رأس المال العامل)")
     wc_c1, wc_c2, wc_c3 = st.columns(3)
     ar_days = wc_c1.number_input("Receivable Days", value=60, step=15)
     inv_days = wc_c2.number_input("Inventory Days", value=45, step=15)
@@ -382,11 +397,10 @@ with tabs[5]:
     payables = (total_gross_mat / 365.0) * ap_days
     working_capital = receivables + inventory - payables
     total_investment = t_capex + working_capital
-    net_profit = total_rev - total_all_cost
     
-    roi_pct = (net_profit / total_investment) if total_investment > 0 else 0
-    payback_yrs = (total_investment / net_profit) if net_profit > 0 else 0
-    net_margin = (net_profit / total_rev) if total_rev > 0 else 0
+    roi_pct = (net_profit_after_tax / total_investment) if total_investment > 0 else 0
+    payback_yrs = (total_investment / net_profit_after_tax) if net_profit_after_tax > 0 else 0
+    net_margin = (net_profit_after_tax / total_rev) if total_rev > 0 else 0
     
     wc_m1, wc_m2, wc_m3, wc_m4 = st.columns(4)
     wc_m1.metric("Cash with Customers", f"SAR {receivables:,.0f}")
@@ -399,33 +413,31 @@ with tabs[5]:
     f1, f2, f3, f4 = st.columns(4)
     f1.metric("Revenue", f"SAR {total_rev:,.0f}")
     f2.metric("Total Cost", f"SAR {total_all_cost:,.0f}")
-    f3.metric("Net Profit", f"SAR {net_profit:,.0f}")
-    f4.metric("🏦 Total Investment", f"SAR {total_investment:,.0f}")
+    f3.metric("Corporate Tax (20%)", f"SAR {corp_tax:,.0f}")
+    f4.metric("Net Profit (After Tax)", f"SAR {net_profit_after_tax:,.0f}")
+    
+    st.warning(f"🏦 **Total Initial Investment Required:** SAR {total_investment:,.0f} *(CAPEX: {t_capex:,.0f} + Working Capital: {working_capital:,.0f})*")
     
     k1, k2, k3 = st.columns(3)
     k1.info(f"**ROI (العائد على الاستثمار):** {roi_pct:.1%}")
     k2.info(f"**Payback Period (فترة الاسترداد):** {payback_yrs:.1f} Years")
-    k3.info(f"**Net Profit Margin (هامش الربح):** {net_margin:.1%}")
+    k3.info(f"**Net Profit Margin (هامش الربح الصافي):** {net_margin:.1%}")
     
-    # 🌟 التصدير الذكي الشامل لبرنامج الإكسل 🌟
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine='xlsxwriter') as w:
         wb = w.book
         
-        # تنسيقات مخصصة للألوان والخطوط في الإكسل
         h_fmt = wb.add_format({'bold': True, 'bg_color': '#0f4c81', 'font_color': 'white', 'border': 1, 'align': 'center'})
         n_fmt = wb.add_format({'num_format': '#,##0.00', 'border': 1})
         p_fmt = wb.add_format({'num_format': '0.00%', 'border': 1})
         title_fmt = wb.add_format({'bold': True, 'font_size': 14, 'bg_color': '#e2efda', 'align': 'center', 'border': 1})
         
-        # --- Sheet 1: Materials ---
         df_mat_export = pd.DataFrame([
             {"المادة الخام": k, "السعر (ريال/كجم)": v["p"], "الكثافة": v["d"]} for k, v in mat_db.items() if k != "None"
         ])
         df_mat_export.to_excel(w, sheet_name='1. المواد الخام', index=False)
         w.sheets['1. المواد الخام'].set_column('A:C', 20)
         
-        # --- Sheet 2: Production ---
         df_mac_export = pd.DataFrame({
             "الماكينة": ["إكسترودر", "طباعة فلكسو", "لامنيشن", "قص (سلتر)", "تشكيل أكياس"],
             "السعة الإنتاجية (طن/سنويا)": [e_tons_cap, (f_lm_cap*f_w*40.0/1000000), (l_lm_cap*l_w*40.0/1000000), (s_lm_cap*s_w*40.0/1000000), (b_lm_cap*40.0/1000000)],
@@ -434,13 +446,11 @@ with tabs[5]:
         df_mac_export.to_excel(w, sheet_name='2. الماكينات والإنتاج', index=False)
         w.sheets['2. الماكينات والإنتاج'].set_column('A:C', 25)
         
-        # --- Sheet 3: HR & OPEX ---
         df_hr_export = df_hr.rename(columns={"Category": "البند", "Monthly Cost": "التكلفة الشهرية (ريال)"})
         df_hr_export["التكلفة السنوية (ريال)"] = df_hr_export["التكلفة الشهرية (ريال)"] * 12
         df_hr_export.to_excel(w, sheet_name='3. الموارد البشرية والتشغيل', index=False)
         w.sheets['3. الموارد البشرية والتشغيل'].set_column('A:C', 25)
         
-        # --- Sheet 4: Detailed Costing (Recipes) ---
         df_costing = df_show.drop(columns=['GSM', 'GrossMatCost']).rename(columns={
             "Product": "المنتج", "Format": "الشكل", "Tons": "الكمية (طن)", "Waste%": "نسبة الهالك",
             "NetMatCost": "المواد", "Extrdr": "إكسترودر", "Flexo": "طباعة", "Lam": "لامنيشن", 
@@ -450,7 +460,6 @@ with tabs[5]:
         df_costing.to_excel(w, sheet_name='4. تحليل التكاليف', index=False)
         w.sheets['4. تحليل التكاليف'].set_column('A:P', 15)
         
-        # --- Sheet 5: Investor Summary ---
         ws_inv = wb.add_worksheet('5. الملخص المالي للمستثمر')
         ws_inv.set_column('A:B', 30)
         
@@ -468,16 +477,22 @@ with tabs[5]:
         ws_inv.write('B8', total_scrap_rev, n_fmt)
         ws_inv.write('A9', 'إجمالي التكاليف السنوية (شاملة الإهلاك)', h_fmt)
         ws_inv.write('B9', total_all_cost, n_fmt)
-        ws_inv.write('A10', 'صافي الربح السنوي (Net Profit)', h_fmt)
-        ws_inv.write('B10', net_profit, n_fmt)
+        ws_inv.write('A10', 'صافي الربح قبل الضرائب', h_fmt)
+        ws_inv.write('B10', net_profit_before_tax, n_fmt)
         
-        ws_inv.merge_range('A12:B12', 'المؤشرات المالية (Financial KPIs)', title_fmt)
-        ws_inv.write('A13', 'هامش الربح الصافي (Net Margin %)', h_fmt)
-        ws_inv.write('B13', net_margin, p_fmt)
-        ws_inv.write('A14', 'العائد على الاستثمار (ROI %)', h_fmt)
-        ws_inv.write('B14', roi_pct, p_fmt)
-        ws_inv.write('A15', 'فترة استرداد رأس المال (بالسنوات)', h_fmt)
-        ws_inv.write('B15', payback_yrs, n_fmt)
+        # 🌟 تم إلغاء الزكاة وتثبيت الضريبة 20% في الإكسل 🌟
+        ws_inv.write('A12', 'ضريبة الاستثمار الأجنبي (Corporate Tax 20%)', h_fmt)
+        ws_inv.write('B12', corp_tax, n_fmt)
+        ws_inv.write('A13', 'صافي الربح النهائي (Net Profit After Tax)', h_fmt)
+        ws_inv.write('B13', net_profit_after_tax, n_fmt)
+        
+        ws_inv.merge_range('A15:B15', 'المؤشرات المالية (Financial KPIs)', title_fmt)
+        ws_inv.write('A16', 'هامش الربح الصافي (Net Margin %)', h_fmt)
+        ws_inv.write('B16', net_margin, p_fmt)
+        ws_inv.write('A17', 'العائد على الاستثمار (ROI %)', h_fmt)
+        ws_inv.write('B17', roi_pct, p_fmt)
+        ws_inv.write('A18', 'فترة استرداد رأس المال (بالسنوات)', h_fmt)
+        ws_inv.write('B18', payback_yrs, n_fmt)
 
     st.download_button("📥 Download Master Excel Study (Arabic)", buf.getvalue(), "Royan_Master_Study_Arabic.xlsx", use_container_width=True)
 
