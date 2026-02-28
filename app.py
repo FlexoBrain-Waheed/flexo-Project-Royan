@@ -203,7 +203,6 @@ with tabs[3]:
 with tabs[4]:
     st.markdown("### ⚙️ 1. Global Production Settings")
     c_s1, c_s2, c_s3, c_s4, c_s5 = st.columns(5)
-    # 🌟 التعديل 1: تم تغيير الافتراضي إلى 4500
     t_tons = c_s1.number_input("🎯 Target Tons", value=4500.0, step=100.0)
     std_w = c_s2.number_input("📏 Web Width (m)", value=1.000, step=0.1)
     w_ink = c_s3.number_input("🎨 Wet Ink", value=5.0, step=0.1)
@@ -211,14 +210,16 @@ with tabs[4]:
     a_gsm = c_s5.number_input("🍯 Adh GSM", value=1.8, step=0.1)
     d_ink = w_ink * (1.0 - (i_loss/100.0))
     
+    # 🌟 تم تعديل نسب السكراب بناءً على الصورة 🌟
     st.markdown("### ♻️ 2. Scrap Engine")
     cw1, cw2, cw3, cw4, cw5 = st.columns(5)
-    w_ext = cw1.number_input("Extruder Waste %", value=3.0, step=0.5)
+    w_ext = cw1.number_input("Extruder Waste %", value=0.0, step=0.5)
     w_flx = cw2.number_input("Flexo Waste %", value=4.0, step=0.5)
-    w_lam = cw3.number_input("Lam Waste %", value=3.0, step=0.5)
-    w_fin = cw4.number_input("Finishing Waste %", value=2.0, step=0.5)
+    w_lam = cw3.number_input("Lam Waste %", value=1.5, step=0.5)
+    w_fin = cw4.number_input("Finishing Waste %", value=1.5, step=0.5)
     scrap_p = cw5.number_input("Scrap Resale (SAR/Kg)", value=1.5, step=0.1)
     
+    # 🌟 تم تعديل نسب Mix% بناءً على الصورة 🌟
     st.markdown("### 📋 3. Smart Product Portfolio (FFS & Routing)")
     init_data = [
         {"Product": "1 Lyr BOPP Trans", "Format": "Roll (Slitted)", "Print": True, "L1": "BOPP Trans", "M1": 35, "L2": "None", "M2": 0, "Mix%": 10, "Price": 13.0},
@@ -227,8 +228,8 @@ with tabs[4]:
         {"Product": "2 Lyr PE + PE", "Format": "Roll (Slitted)", "Print": True, "L1": "PE FFS", "M1": 40, "L2": "PE Lam", "M2": 50, "Mix%": 10, "Price": 11.0},
         {"Product": "2 Lyr PET + PE", "Format": "Roll (Slitted)", "Print": True, "L1": "PET", "M1": 12, "L2": "PE Lam", "M2": 50, "Mix%": 10, "Price": 13.5},
         {"Product": "2 Lyr BOPP + Met", "Format": "Roll (Slitted)", "Print": True, "L1": "BOPP Trans", "M1": 20, "L2": "BOPP Met", "M2": 20, "Mix%": 10, "Price": 13.5},
-        {"Product": "2 Lyr BOPP + BOPP", "Format": "Roll (Slitted)", "Print": True, "L1": "BOPP Trans", "M1": 20, "L2": "BOPP Trans", "M2": 20, "Mix%": 10, "Price": 13.5},
-        {"Product": "Plain Shrink Film", "Format": "Jumbo Roll", "Print": False, "L1": "PE Shrink", "M1": 40, "L2": "None", "M2": 0, "Mix%": 15, "Price": 5.0},
+        {"Product": "2 Lyr BOPP + BOPP", "Format": "Roll (Slitted)", "Print": True, "L1": "BOPP Trans", "M1": 20, "L2": "BOPP Trans", "M2": 20, "Mix%": 16, "Price": 13.5},
+        {"Product": "Plain Shrink Film", "Format": "Jumbo Roll", "Print": False, "L1": "PE Shrink", "M1": 40, "L2": "None", "M2": 0, "Mix%": 9, "Price": 5.0},
         {"Product": "PE Wicketer Bag", "Format": "Bag", "Print": True, "L1": "PE Bag", "M1": 40, "L2": "None", "M2": 0, "Mix%": 15, "Price": 12.0}
     ]
     
@@ -244,7 +245,6 @@ with tabs[4]:
         }
     )
     
-    # 🌟 التعديل 2: مؤشر تجميع نسبة Mix% للتأكد من أنها 100% 🌟
     total_mix = df_rec["Mix%"].sum()
     if total_mix == 100:
         st.success(f"✅ Total Mix: **{total_mix}%** (Perfect Allocation)")
